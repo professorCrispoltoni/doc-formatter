@@ -5,15 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dark PDF Converter</title>
 
-    <!-- pdf-lib -->
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <!-- PDF.js per estrarre testo dai PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc =
             'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
-    <!-- Mammoth per leggere DOCX -->
     <script src="https://cdn.jsdelivr.net/npm/mammoth@1.5.0/mammoth.browser.min.js"></script>
 
     <style>
@@ -23,9 +20,7 @@
             font-family: Verdana, sans-serif;
             padding: 20px;
         }
-        h1 {
-            margin-top: 0;
-        }
+        h1 { margin-top: 0; }
         .panel {
             background: #1b1b1b;
             border: 1px solid #333;
@@ -43,7 +38,7 @@
         .panel input[type="text"],
         .panel input[type="file"] {
             width: 100%;
-            max-width: 300px;
+            max-width: 320px;
             padding: 6px 8px;
             border-radius: 4px;
             border: 1px solid #444;
@@ -99,16 +94,14 @@
 
 <body>
     <h1>Dark PDF Converter</h1>
-    <p>Trasforma TXT, PDF, DOCX in un PDF con sfondo nero e testo bianco, con font Verdana, dimensione e interlinea configurabili.</p>
+    <p>Trasforma TXT, PDF, DOCX in un PDF con sfondo nero, testo bianco, Verdana, dimensione e interlinea configurabili.</p>
 
-    <!-- Upload -->
     <div class="panel">
         <label for="fileInput">File (TXT, PDF, DOCX):</label>
         <input type="file" id="fileInput" accept=".txt,.pdf,.docx">
         <p id="fileInfo"></p>
     </div>
 
-    <!-- Impostazioni -->
     <div class="panel">
         <label for="fontSize">Font size (px):</label>
         <input type="number" id="fontSize" value="14" min="12" max="30">
@@ -120,13 +113,11 @@
         <input type="text" id="title" placeholder="Titolo">
     </div>
 
-    <!-- Anteprima -->
     <div class="panel">
         <h3>Anteprima (prime ~2000 caratteri)</h3>
         <div id="preview">Carica un file per vedere il contenuto…</div>
     </div>
 
-    <!-- Esporta -->
     <div class="panel">
         <button class="btn btn-primary" id="exportPdf" disabled>Esporta PDF Dark</button>
         <p id="status"></p>
@@ -135,9 +126,6 @@
 <script>
 let uploadedText = "";
 
-// ---------------------
-// CARICAMENTO FILE
-// ---------------------
 document.getElementById("fileInput").addEventListener("change", async e => {
     const file = e.target.files[0];
     if (!file) return;
@@ -170,12 +158,10 @@ document.getElementById("fileInput").addEventListener("change", async e => {
     }
 });
 
-// Estrazione testo PDF
 async function extractTextFromPdf(file) {
     const buffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
     let text = "";
-
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
@@ -184,41 +170,40 @@ async function extractTextFromPdf(file) {
     return text;
 }
 
-// Estrazione DOCX
 async function extractTextFromDocx(file) {
     const arrayBuffer = await file.arrayBuffer();
     const result = await mammoth.extractRawText({ arrayBuffer });
     return result.value;
 }
 
-// ---------------------
-// ESPORTAZIONE PDF
-// ---------------------
 document.getElementById("exportPdf").addEventListener("click", exportPdf);
 
 async function exportPdf() {
     const status = document.getElementById("status");
+    console.log("Export PDF cliccato");
 
-    if (!uploadedText.trim()) {
+    if (!uploadedText || !uploadedText.trim()) {
         alert("Nessun testo da esportare.");
+        console.error("uploadedText vuoto");
         return;
     }
 
     try {
         status.textContent = "Generazione PDF…";
+        console.log("Inizio generazione PDF");
 
         const { PDFDocument, rgb } = PDFLib;
         const pdfDoc = await PDFDocument.create();
 
-        // Carica Verdana dallo stesso repo (index.html e verdana.ttf nella stessa cartella)
         const fontBytes = await fetch("verdana.ttf").then(r => r.arrayBuffer());
+        console.log("Font caricato, bytes:", fontBytes.byteLength);
         const font = await pdfDoc.embedFont(fontBytes);
+        console.log("Font incorporato");
 
         const fontSize = parseInt(document.getElementById("fontSize").value);
         const lineHeight = parseFloat(document.getElementById("lineHeight").value);
         const title = document.getElementById("title").value || "Documento";
 
-        // Pagina A4 approssimata in punti
         let page = pdfDoc.addPage([595, 842]);
         const pageWidth = 595;
         const pageHeight = 842;
@@ -231,7 +216,6 @@ async function exportPdf() {
 
         let y = pageHeight - marginTop;
 
-        // Titolo
         if (title.trim()) {
             const titleSize = fontSize + 6;
             page.drawText(title, {
@@ -244,7 +228,6 @@ async function exportPdf() {
             y -= titleSize * lineHeight;
         }
 
-        // Wrapping manuale del testo
         const paragraphs = uploadedText.split("\n");
         for (let para of paragraphs) {
             const words = para.split(" ");
@@ -255,7 +238,6 @@ async function exportPdf() {
                 const textWidth = font.widthOfTextAtSize(testLine, fontSize);
 
                 if (textWidth > maxWidth) {
-                    // Stampa la linea corrente
                     if (y < marginBottom) {
                         page = pdfDoc.addPage([595, 842]);
                         drawBackground(page);
@@ -275,7 +257,6 @@ async function exportPdf() {
                 }
             }
 
-            // Ultima linea del paragrafo
             if (line) {
                 if (y < marginBottom) {
                     page = pdfDoc.addPage([595, 842]);
@@ -292,13 +273,13 @@ async function exportPdf() {
                 y -= fontSize * lineHeight;
             }
 
-            // Riga vuota tra paragrafi
             y -= fontSize * (lineHeight - 1);
         }
 
         const pdfBytes = await pdfDoc.save();
-        const blob = new Blob([pdfBytes], { type: "application/pdf" });
+        console.log("PDF generato, bytes:", pdfBytes.byteLength);
 
+        const blob = new Blob([pdfBytes], { type: "application/pdf" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -310,7 +291,7 @@ async function exportPdf() {
 
         status.textContent = "PDF creato con successo!";
     } catch (err) {
-        console.error(err);
+        console.error("Errore PDF:", err);
         status.textContent = "Errore nella generazione del PDF.";
         alert("Errore PDF: " + err);
     }
