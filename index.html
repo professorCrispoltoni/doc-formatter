@@ -432,10 +432,15 @@
             let text = '';
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
-                const content = await page.getTextContent();
-                text += content.items.map(item => item.str).join(' ') + '\n';
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join('');
+                
+                // Aggiungi a capo se manca
+                if (pageText.trim()) {
+                    text += pageText.trim() + '\n\n';
+                }
             }
-            return text;
+            return text.trim();
         }
 
         async function extractTextFromDocx(file) {
@@ -486,13 +491,16 @@
 
             const element = document.createElement('div');
             element.style.cssText = `
-                background: #000;
-                color: #fff;
+                background: white;
+                color: black;
                 padding: 40px;
                 font-family: '${fontFamily}', sans-serif;
                 line-height: ${lineHeight};
                 width: 595px;
                 margin: 0;
+                position: absolute;
+                left: -9999px;
+                top: -9999px;
             `;
 
             if (title) {
@@ -502,34 +510,41 @@
                     font-size: ${parseInt(fontSize) + 6}px;
                     margin: 0 0 30px 0;
                     line-height: ${lineHeight};
-                    color: #fff;
+                    color: black;
                 `;
                 element.appendChild(titleEl);
             }
 
-            uploadedText.split('\n').forEach((line, index) => {
+            uploadedText.split('\n').forEach((line) => {
                 const p = document.createElement('p');
                 p.textContent = line || ' ';
                 p.style.cssText = `
                     font-size: ${fontSize}px;
                     line-height: ${lineHeight};
-                    margin: 0 0 ${fontSize * lineHeight / 2}px 0;
-                    color: #fff;
+                    margin: 0 0 16px 0;
+                    color: black;
                     font-family: '${fontFamily}', sans-serif;
                 `;
                 element.appendChild(p);
             });
 
+            document.body.appendChild(element);
+
             const opt = {
-                margin: [15, 15, 15, 15],
+                margin: 10,
                 filename: `${title}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, backgroundColor: '#000000' },
+                image: { type: 'png', quality: 0.98 },
+                html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true },
                 jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
             };
 
-            html2pdf().set(opt).from(element).save();
-            showStatus('PDF esportato con successo!', 'success');
+            html2pdf().set(opt).from(element).then(() => {
+                document.body.removeChild(element);
+                showStatus('✅ PDF esportato con successo!', 'success');
+            }).catch(err => {
+                document.body.removeChild(element);
+                showStatus('❌ Errore export PDF: ' + err, 'error');
+            });
         }
 
         function exportDocx() {
