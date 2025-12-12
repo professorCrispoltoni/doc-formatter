@@ -1,129 +1,98 @@
 <!DOCTYPE html>
 <html lang="it">
-
 <head>
-    <meta charset="UTF-8">
-    <title>PDF Nero Ipovedenti</title>
-
-    <!-- Libreria PDFMake -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
-
-    <style>
-        body {
-            background: #111;
-            color: white;
-            font-family: Arial;
-            padding: 40px;
-        }
-
-        button {
-            margin-top: 20px;
-            padding: 10px 18px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-    </style>
+<meta charset="UTF-8">
+<title>PDF Nero Ipovedenti</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+<style>
+body { background:#111; color:white; padding:40px; font-family:Arial; }
+button { margin-top:20px; padding:10px 18px; font-size:16px; cursor:pointer; }
+</style>
 </head>
-
 <body>
 
-    <h2>Converti file in PDF (Verdana, bianco su nero)</h2>
+<h2>Converti file in PDF (Verdana, bianco su nero)</h2>
 
-    <input type="file" id="fileInput" accept=".txt" />
-    <button id="btnPdf" disabled>Esporta PDF</button>
+<input type="file" id="fileInput" accept=".txt" />
+<button id="btnPdf" disabled>Esporta PDF</button>
 
-    <p id="status"></p>
+<p id="status"></p>
 
-    <script>
-        let uploadedText = "";
+<script>
+let uploadedText = "";
+const btnPdf = document.getElementById("btnPdf");
 
-        function setStatus(msg) {
-            document.getElementById("status").textContent = msg;
+// Funzione per aggiornare lo stato
+function setStatus(msg){ document.getElementById("status").textContent = msg; }
+
+// Carica font personalizzati e attende completamento
+async function loadFonts() {
+    const v = await fetch("verdana.ttf").then(r=>r.arrayBuffer());
+    const vb = await fetch("verdanab.ttf").then(r=>r.arrayBuffer());
+    
+    pdfMake.vfs["verdana.ttf"] = btoa(String.fromCharCode(...new Uint8Array(v)));
+    pdfMake.vfs["verdanab.ttf"] = btoa(String.fromCharCode(...new Uint8Array(vb)));
+    
+    pdfMake.fonts = {
+        verdana: {
+            normal: "verdana.ttf",
+            bold: "verdanab.ttf",
+            italics: "verdana.ttf",
+            bolditalics: "verdanab.ttf"
         }
+    };
+}
 
-        async function loadCustomFonts() {
-            const v = await fetch("verdana.ttf").then(r => r.arrayBuffer());
-            const vb = await fetch("verdanab.ttf").then(r => r.arrayBuffer());
+// Caricamento font prima di abilitare il bottone
+loadFonts().then(() => setStatus("Font caricati, pronto a importare file TXT"));
 
-            // Inseriamo i font nel VFS di pdfmake
-            pdfMake.vfs["verdana.ttf"] =
-                btoa(String.fromCharCode(...new Uint8Array(v)));
+// Lettura file TXT
+document.getElementById("fileInput").addEventListener("change", async e=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    setStatus("Caricamento file...");
+    uploadedText = await file.text();
+    setStatus("Caricamento avvenuto con successo.");
+    btnPdf.disabled = false;
+});
 
-            pdfMake.vfs["verdanab.ttf"] =
-                btoa(String.fromCharCode(...new Uint8Array(vb)));
+// Generazione PDF
+btnPdf.addEventListener("click", ()=>{
+    if(!uploadedText){ setStatus("Nessun testo caricato."); return; }
+    setStatus("Generazione PDF...");
 
-            pdfMake.fonts = {
-                verdana: {
-                    normal: "verdana.ttf",
-                    bold: "verdanab.ttf",
-                    italics: "verdana.ttf",
-                    bolditalics: "verdanab.ttf"
-                }
-            };
-        }
+    const lines = uploadedText.split("\n");
 
-        loadCustomFonts();
+    const docDefinition = {
+        pageMargins:[40,40,40,40],
+        background: [
+            { canvas:[ {type:'rect', x:0, y:0, w:595, h:842, color:'black'} ] }
+        ],
+        content: lines.map(line=>({
+            text: line||" ",
+            font: "verdana",
+            fontSize: 16,
+            color: "white",
+            lineHeight: 1.6
+        }))
+    };
 
-        // CARICAMENTO FILE
-        document.getElementById("fileInput").addEventListener("change", async e => {
-            const file = e.target.files[0];
-            if (!file) return;
+    const pdf = pdfMake.createPdf(docDefinition);
 
-            setStatus("Caricamento...");
-
-            uploadedText = await file.text();
-
-            setStatus("Caricamento avvenuto con successo.");
-            document.getElementById("btnPdf").disabled = false;
-        });
-
-        // ESPORTA PDF
-        document.getElementById("btnPdf").addEventListener("click", () => {
-            if (!uploadedText) {
-                setStatus("Nessun testo caricato.");
-                return;
-            }
-
-            setStatus("Generazione PDF...");
-
-            const lines = uploadedText.split("\n");
-
-            const docDefinition = {
-                pageMargins: [40, 40, 40, 40],
-                background: [
-                    {
-                        canvas: [
-                            { type: 'rect', x: 0, y: 0, w: 595, h: 842, color: 'black' }
-                        ]
-                    }
-                ],
-                content: lines.map(line => ({
-                    text: line || " ",
-                    font: "verdana",
-                    fontSize: 16,
-                    color: "white",
-                    lineHeight: 1.6
-                }))
-            };
-
-            const pdf = pdfMake.createPdf(docDefinition);
-
-            // Scaricamento SICURO, senza popup
-            pdf.getBlob(blob => {
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = "testo_nero.pdf";
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                URL.revokeObjectURL(url);
-
-                setStatus("PDF esportato con successo.");
-            });
-        });
-    </script>
-
+    // Scaricamento sicuro senza popup
+    pdf.getBlob(blob=>{
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "testo_nero.pdf";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        setStatus("PDF esportato con successo.");
+    });
+});
+</script>
 </body>
 </html>
