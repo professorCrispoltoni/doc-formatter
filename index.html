@@ -3,21 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dark PDF Converter - Verdana</title>
+    <title>Dark PDF Converter</title>
 
-    <!-- pdf-lib -->
+    <!-- pdf-lib (solo core, senza fontkit) -->
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <!-- fontkit per font TTF personalizzati -->
-    <script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
-
     <!-- PDF.js per estrarre testo dai PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc =
             'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
-
-    <!-- Mammoth per DOCX -->
+    <!-- Mammoth per leggere DOCX -->
     <script src="https://cdn.jsdelivr.net/npm/mammoth@1.5.0/mammoth.browser.min.js"></script>
 
     <style>
@@ -100,15 +96,17 @@
 </head>
 
 <body>
-    <h1>Dark PDF Converter (Verdana)</h1>
-    <p>TXT / PDF / DOCX → PDF con sfondo nero, testo bianco, font Verdana, dimensione ≥14 e interlinea configurabile.</p>
+    <h1>Dark PDF Converter</h1>
+    <p>TXT / PDF / DOCX → PDF con sfondo nero, testo bianco, font leggibile tipo Verdana, dimensione ≥14 e interlinea configurabile.</p>
 
+    <!-- Upload -->
     <div class="panel">
         <label for="fileInput">File (TXT, PDF, DOCX):</label>
         <input type="file" id="fileInput" accept=".txt,.pdf,.docx">
         <p id="fileInfo"></p>
     </div>
 
+    <!-- Impostazioni -->
     <div class="panel">
         <label for="fontSize">Font size (px):</label>
         <input type="number" id="fontSize" value="14" min="12" max="30">
@@ -120,11 +118,13 @@
         <input type="text" id="title" placeholder="Titolo">
     </div>
 
+    <!-- Anteprima -->
     <div class="panel">
         <h3>Anteprima (prime ~2000 caratteri)</h3>
         <div id="preview">Carica un file per vedere il contenuto…</div>
     </div>
 
+    <!-- Esporta -->
     <div class="panel">
         <button class="btn btn-primary" id="exportPdf" disabled>Esporta PDF Dark</button>
         <p id="status"></p>
@@ -133,7 +133,7 @@
 <script>
 let uploadedText = "";
 
-// ---------- CARICAMENTO FILE ----------
+// CARICAMENTO FILE
 document.getElementById("fileInput").addEventListener("change", async e => {
     const file = e.target.files[0];
     if (!file) return;
@@ -186,7 +186,7 @@ async function extractTextFromDocx(file) {
     return result.value;
 }
 
-// ---------- ESPORTAZIONE PDF ----------
+// ESPORTAZIONE PDF
 document.getElementById("exportPdf").addEventListener("click", exportPdf);
 
 async function exportPdf() {
@@ -200,22 +200,17 @@ async function exportPdf() {
     try {
         status.textContent = "Generazione PDF…";
 
-        const { PDFDocument, rgb } = PDFLib;
-
-        // registra fontkit sull'oggetto giusto
-        PDFLib.PDFDocument.registerFontkit(fontkit);
-
+        const { PDFDocument, StandardFonts, rgb } = PDFLib;
         const pdfDoc = await PDFDocument.create();
 
-        // carica Verdana (index.html e verdana.ttf nella stessa cartella)
-        const fontBytes = await fetch("verdana.ttf").then(r => r.arrayBuffer());
-        const font = await pdfDoc.embedFont(fontBytes);
+        // Font standard integrato (simile a Verdana per leggibilità)
+        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
         const fontSize = parseInt(document.getElementById("fontSize").value);
         const lineHeight = parseFloat(document.getElementById("lineHeight").value);
         const title = document.getElementById("title").value || "Documento";
 
-        let page = pdfDoc.addPage([595, 842]); // A4 approx
+        let page = pdfDoc.addPage([595, 842]); // A4 approx in punti
         const pageWidth = 595;
         const pageHeight = 842;
         const marginLeft = 50;
@@ -240,7 +235,7 @@ async function exportPdf() {
             y -= titleSize * lineHeight;
         }
 
-        // Testo con wrapping
+        // Testo con wrapping manuale
         const paragraphs = uploadedText.split("\n");
         for (let para of paragraphs) {
             const words = para.split(" ");
