@@ -188,41 +188,60 @@ async function extractTextFromDocx(file) {
 }
 
 // ESPORTAZIONE PDF
-document.getElementById("exportPdf").addEventListener("click", exportPdf);
-    function exportPdf() {
-    const preview = document.getElementById("preview");
-    
-    // CREA DIV con anteprima ESATTA
+function exportPdf() {
+    if (!uploadedText.trim()) {
+        alert("Nessun testo.");
+        return;
+    }
+
+    const fontSize = document.getElementById("fontSize").value + "px";
+    const lineHeight = document.getElementById("lineHeight").value;
+
+    // DIV con TESTO COMPLETO (NON preview!)
     const printDiv = document.createElement('div');
     printDiv.style.cssText = `
         font-family: Verdana, sans-serif !important;
-        font-size: ${document.getElementById("fontSize").value}px !important;
-        line-height: ${document.getElementById("lineHeight").value} !important;
+        font-size: ${fontSize} !important;
+        line-height: ${lineHeight} !important;
         background: black !important;
         color: white !important;
         padding: 40px !important;
-        width: 595px !important;
+        width: 21cm !important;
         margin: 0 !important;
         position: absolute !important;
         left: -9999px !important;
         top: -9999px !important;
         white-space: pre-wrap !important;
+        word-wrap: break-word !important;
     `;
-    printDiv.textContent = preview.textContent;
+    printDiv.textContent = uploadedText;  // ← TESTO COMPLETO!
 
     document.body.appendChild(printDiv);
 
     html2pdf().set({
-        margin: 10,
+        margin: [1, 1, 1, 1],
         filename: 'PDF-Dark.pdf',
-        image: { type: 'png', quality: 0.98 },
-        html2canvas: { scale: 2, backgroundColor: '#000000', useCORS: true },
-        jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { 
+            scale: 2, 
+            backgroundColor: '#000000',
+            useCORS: true,
+            width: 794
+        },
+        jsPDF: { 
+            unit: 'cm', 
+            format: 'a4', 
+            orientation: 'portrait' 
+        }
     }).from(printDiv).save().then(() => {
         document.body.removeChild(printDiv);
         document.getElementById("status").textContent = "PDF creato!";
+    }).catch(err => {
+        document.body.removeChild(printDiv);
+        alert("Errore: " + err);
     });
 }
+
 
 
 function drawBackground(page, rgb) {
