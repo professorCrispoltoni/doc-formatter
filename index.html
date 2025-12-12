@@ -219,81 +219,29 @@ async function exportPdf() {
         drawBackground(page, rgb);
         let y = pageHeight - marginTop;
 
-        // TITOLO SOLO SE SCRITTO dall'utente
+        // TITOLO SOLO SE LO SCRIVI TU
         if (customTitle) {
-            const titleSize = fontSize + 8;
-            page.drawText(customTitle.replace(/\s+/g, ' ').trim(), {
+            page.drawText(customTitle, {
                 x: marginLeft,
                 y,
-                size: titleSize,
+                size: fontSize + 6,
                 font,
                 color: rgb(0.8, 1, 1)
             });
-            y -= titleSize * 1.2 + 20;
+            y -= (fontSize + 6) * 1.2 + 15;
         }
 
-        // PRESERVA A CAPO ORIGINALI (non splitta per frasi)
+        // TESTO SEMPLICE: mantiene a capo + wrapping orizzontale
         const lines = uploadedText.split('\n');
         for (let line of lines) {
-            const originalLine = line.trim();
-            if (!originalLine) {
-                y -= fontSize * 0.5;  // riga vuota = spazio extra
+            let cleanLine = line.replace(/\s+/g, ' ').trim(); // solo pulisce spazi
+            if (!cleanLine) {
+                y -= fontSize * 0.3;
                 continue;
             }
 
-            // === TITOLO ===
-            if (originalLine === originalLine.toUpperCase() || 
-                /^\d+\.\s/.test(originalLine) || 
-                originalLine.match(/Introduzione|Capitolo|Sezione/i)) {
-                
-                if (y < marginBottom + 50) {
-                    page = pdfDoc.addPage([595, 842]);
-                    drawBackground(page, rgb);
-                    y = pageHeight - marginTop;
-                }
-                
-                page.drawText(originalLine.replace(/\s+/g, ' '), {
-                    x: marginLeft,
-                    y,
-                    size: fontSize + 3,
-                    font,
-                    color: rgb(0.7, 0.9, 1)
-                });
-                y -= (fontSize + 3) * 1.2 + 12;
-                continue;
-            }
-
-            // === ELENCO PUNTATO ===
-            if (/^[-•*]\s/.test(originalLine)) {
-                if (y < marginBottom) {
-                    page = pdfDoc.addPage([595, 842]);
-                    drawBackground(page, rgb);
-                    y = pageHeight - marginTop;
-                }
-                
-                const bullet = originalLine.substring(0, 2) + ' ';
-                const content = originalLine.substring(2);
-                
-                page.drawText(bullet, {
-                    x: marginLeft,
-                    y,
-                    size: fontSize,
-                    font,
-                    color: rgb(0.7, 0.9, 1)
-                });
-                page.drawText(content.replace(/\s+/g, ' '), {
-                    x: marginLeft + 20,
-                    y,
-                    size: fontSize,
-                    font,
-                    color: rgb(1, 1, 1)
-                });
-                y -= fontSize * lineHeight;
-                continue;
-            }
-
-            // === TESTO NORMALE (mantiene riga intera, solo wrapping orizzontale) ===
-            const words = originalLine.split(' ');
+            // WRAPPING ORIZZONTALE (non verticale)
+            const words = cleanLine.split(' ');
             let currentLine = '';
             
             for (let word of words) {
@@ -301,6 +249,7 @@ async function exportPdf() {
                 const textWidth = font.widthOfTextAtSize(testLine, fontSize);
 
                 if (textWidth > maxWidth) {
+                    // Stampa riga corrente
                     if (currentLine && y >= marginBottom) {
                         page.drawText(currentLine, {
                             x: marginLeft,
@@ -324,6 +273,7 @@ async function exportPdf() {
                 }
             }
 
+            // Ultima riga
             if (currentLine && y >= marginBottom) {
                 page.drawText(currentLine, {
                     x: marginLeft,
@@ -341,7 +291,7 @@ async function exportPdf() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = (customTitle || "Documento") + ".pdf";
+        a.download = (customTitle || "PDF-Dark") + ".pdf";
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -349,7 +299,7 @@ async function exportPdf() {
 
         status.textContent = "PDF creato!";
     } catch (err) {
-        console.error("Errore PDF:", err);
+        console.error("Errore:", err);
         status.textContent = "Errore PDF.";
         alert("Errore: " + err.message);
     }
