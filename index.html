@@ -188,6 +188,7 @@ async function extractTextFromDocx(file) {
 
 // ESPORTAZIONE PDF
 document.getElementById("exportPdf").addEventListener("click", exportPdf);
+    
 async function exportPdf() {
     const status = document.getElementById("status");
 
@@ -205,7 +206,7 @@ async function exportPdf() {
 
         const fontSize = parseInt(document.getElementById("fontSize").value);
         const lineHeight = parseFloat(document.getElementById("lineHeight").value);
-        const title = document.getElementById("title").value || "Documento";
+        const customTitle = document.getElementById("title").value.trim();
 
         let page = pdfDoc.addPage([595, 842]);
         const pageWidth = 595;
@@ -218,10 +219,10 @@ async function exportPdf() {
         drawBackground(page, rgb);
         let y = pageHeight - marginTop;
 
-        // Titolo documento
-        if (title.trim()) {
+        // TITOLO SOLO SE SCRITTO dall'utente
+        if (customTitle) {
             const titleSize = fontSize + 8;
-            page.drawText(title.replace(/\s+/g, ' ').trim(), {
+            page.drawText(customTitle.replace(/\s+/g, ' ').trim(), {
                 x: marginLeft,
                 y,
                 size: titleSize,
@@ -231,25 +232,19 @@ async function exportPdf() {
             y -= titleSize * 1.2 + 20;
         }
 
-        // PULISCE TESTO (generico per tutti i PDF)
-        let cleanText = uploadedText
-            .replace(/\s+/g, ' ')  // spazi multipli → singolo
-            .replace(/[\r\n]+/g, '\n')  // normalizza a capo
-            .trim();
-
-        // PROCESSA RIGA PER RIGA
-        const lines = cleanText.split('\n');
+        // PRESERVA A CAPO ORIGINALI (non splitta per frasi)
+        const lines = uploadedText.split('\n');
         for (let line of lines) {
-            line = line.trim();
-            if (!line || line.length < 3) {
-                y -= fontSize * 0.2;
+            const originalLine = line.trim();
+            if (!originalLine) {
+                y -= fontSize * 0.5;  // riga vuota = spazio extra
                 continue;
             }
 
-            // === TITOLO: maiuscolo OPPURE numerato (1., 2.) ===
-            if (line === line.toUpperCase() || 
-                /^\d+\.\s/.test(line) || 
-                line.match(/Introduzione|Capitolo|Sezione/i)) {
+            // === TITOLO ===
+            if (originalLine === originalLine.toUpperCase() || 
+                /^\d+\.\s/.test(originalLine) || 
+                originalLine.match(/Introduzione|Capitolo|Sezione/i)) {
                 
                 if (y < marginBottom + 50) {
                     page = pdfDoc.addPage([595, 842]);
@@ -257,28 +252,27 @@ async function exportPdf() {
                     y = pageHeight - marginTop;
                 }
                 
-                const titleSize = fontSize + 3;
-                page.drawText(line, {
+                page.drawText(originalLine.replace(/\s+/g, ' '), {
                     x: marginLeft,
                     y,
-                    size: titleSize,
+                    size: fontSize + 3,
                     font,
-                    color: rgb(0.7, 0.9, 1)  // azzurro
+                    color: rgb(0.7, 0.9, 1)
                 });
-                y -= titleSize * 1.2 + 12;
+                y -= (fontSize + 3) * 1.2 + 12;
                 continue;
             }
 
-            // === ELENCO PUNTATO: - • * ===
-            if (/^[-•*]\s/.test(line)) {
+            // === ELENCO PUNTATO ===
+            if (/^[-•*]\s/.test(originalLine)) {
                 if (y < marginBottom) {
                     page = pdfDoc.addPage([595, 842]);
                     drawBackground(page, rgb);
                     y = pageHeight - marginTop;
                 }
                 
-                const bullet = line.substring(0, 2) + ' ';
-                const content = line.substring(2);
+                const bullet = originalLine.substring(0, 2) + ' ';
+                const content = originalLine.substring(2);
                 
                 page.drawText(bullet, {
                     x: marginLeft,
@@ -287,7 +281,7 @@ async function exportPdf() {
                     font,
                     color: rgb(0.7, 0.9, 1)
                 });
-                page.drawText(content, {
+                page.drawText(content.replace(/\s+/g, ' '), {
                     x: marginLeft + 20,
                     y,
                     size: fontSize,
@@ -298,8 +292,8 @@ async function exportPdf() {
                 continue;
             }
 
-            // === TESTO NORMALE (wrapping) ===
-            const words = line.split(' ');
+            // === TESTO NORMALE (mantiene riga intera, solo wrapping orizzontale) ===
+            const words = originalLine.split(' ');
             let currentLine = '';
             
             for (let word of words) {
@@ -307,7 +301,6 @@ async function exportPdf() {
                 const textWidth = font.widthOfTextAtSize(testLine, fontSize);
 
                 if (textWidth > maxWidth) {
-                    // Stampa riga corrente
                     if (currentLine && y >= marginBottom) {
                         page.drawText(currentLine, {
                             x: marginLeft,
@@ -331,7 +324,6 @@ async function exportPdf() {
                 }
             }
 
-            // Ultima riga
             if (currentLine && y >= marginBottom) {
                 page.drawText(currentLine, {
                     x: marginLeft,
@@ -349,16 +341,16 @@ async function exportPdf() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = title.replace(/[^\w\s-]/g, '') + ".pdf";
+        a.download = (customTitle || "Documento") + ".pdf";
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        status.textContent = "PDF creato con successo!";
+        status.textContent = "PDF creato!";
     } catch (err) {
         console.error("Errore PDF:", err);
-        status.textContent = "Errore nella generazione del PDF.";
+        status.textContent = "Errore PDF.";
         alert("Errore: " + err.message);
     }
 }
