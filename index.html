@@ -202,15 +202,13 @@ async function exportPdf() {
 
         const { PDFDocument, StandardFonts, rgb } = PDFLib;
         const pdfDoc = await PDFDocument.create();
-
-        // Font standard integrato (simile a Verdana per leggibilità)
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
         const fontSize = parseInt(document.getElementById("fontSize").value);
         const lineHeight = parseFloat(document.getElementById("lineHeight").value);
         const title = document.getElementById("title").value || "Documento";
 
-        let page = pdfDoc.addPage([595, 842]); // A4 approx in punti
+        let page = pdfDoc.addPage([595, 842]);
         const pageWidth = 595;
         const pageHeight = 842;
         const marginLeft = 50;
@@ -219,10 +217,9 @@ async function exportPdf() {
         const maxWidth = pageWidth - marginLeft * 2;
 
         drawBackground(page, rgb);
-
         let y = pageHeight - marginTop;
 
-        // Titolo
+        // Titolo principale
         if (title.trim()) {
             const titleSize = fontSize + 6;
             page.drawText(title, {
@@ -232,40 +229,22 @@ async function exportPdf() {
                 font,
                 color: rgb(1, 1, 1)
             });
-            y -= titleSize * lineHeight;
+            y -= titleSize * lineHeight + 20;
         }
 
-        // Testo con wrapping manuale
-        const paragraphs = uploadedText.split("\n");
-        for (let para of paragraphs) {
-            const words = para.split(" ");
-            let line = "";
-
-            for (let word of words) {
-                const testLine = line ? line + " " + word : word;
-                const textWidth = font.widthOfTextAtSize(testLine, fontSize);
-
-                if (textWidth > maxWidth) {
-                    if (y < marginBottom) {
-                        page = pdfDoc.addPage([595, 842]);
-                        drawBackground(page, rgb);
-                        y = pageHeight - marginTop;
-                    }
-                    page.drawText(line, {
-                        x: marginLeft,
-                        y,
-                        size: fontSize,
-                        font,
-                        color: rgb(1, 1, 1)
-                    });
-                    y -= fontSize * lineHeight;
-                    line = word;
-                } else {
-                    line = testLine;
-                }
+        // Processa paragrafi mantenendo struttura
+        const lines = uploadedText.split("\n");
+        for (let line of lines) {
+            line = line.trim();
+            if (!line) {
+                y -= fontSize * 0.5; // spazio vuoto
+                continue;
             }
 
-            if (line) {
+            // RILEVA TITOLI (maiuscolo o inizia con numeri)
+            if (line === line.toUpperCase() || /^\d+\./.test(line) || /^[-•*] /.test(line) === false) {
+                // Titolo: font più grande, centrato
+                const titleSize = fontSize + 2;
                 if (y < marginBottom) {
                     page = pdfDoc.addPage([595, 842]);
                     drawBackground(page, rgb);
@@ -274,15 +253,80 @@ async function exportPdf() {
                 page.drawText(line, {
                     x: marginLeft,
                     y,
+                    size: titleSize,
+                    font,
+                    color: rgb(0.8, 1, 1) // azzurro chiaro
+                });
+                y -= titleSize * lineHeight + 10;
+                continue;
+            }
+
+            // RILEVA ELENCHI PUNTATI (- • *)
+            if (/^[-•*] /.test(line)) {
+                const bullet = "• ";
+                const content = line.substring(2); // toglie il primo carattere
+                if (y < marginBottom) {
+                    page = pdfDoc.addPage([595, 842]);
+                    drawBackground(page, rgb);
+                    y = pageHeight - marginTop;
+                }
+                
+                // Punteggio + testo indentato
+                page.drawText(bullet, {
+                    x: marginLeft,
+                    y,
+                    size: fontSize,
+                    font,
+                    color: rgb(0.8, 1, 1)
+                });
+                page.drawText(content, {
+                    x: marginLeft + 15,
+                    y,
+                    size: fontSize,
+                    font,
+                    color: rgb(1, 1, 1)
+                });
+                y -= fontSize * lineHeight;
+                continue;
+            }
+
+            // Testo normale con wrapping
+            const words = line.split(" ");
+            let currentLine = "";
+            for (let word of words) {
+                const testLine = currentLine ? currentLine + " " + word : word;
+                const textWidth = font.widthOfTextAtSize(testLine, fontSize);
+
+                if (textWidth > maxWidth) {
+                    if (y < marginBottom) {
+                        page = pdfDoc.addPage([595, 842]);
+                        drawBackground(page, rgb);
+                        y = pageHeight - marginTop;
+                    }
+                    page.drawText(currentLine, {
+                        x: marginLeft,
+                        y,
+                        size: fontSize,
+                        font,
+                        color: rgb(1, 1, 1)
+                    });
+                    y -= fontSize * lineHeight;
+                    currentLine = word;
+                } else {
+                    currentLine = testLine;
+                }
+            }
+
+            if (currentLine && y >= marginBottom) {
+                page.drawText(currentLine, {
+                    x: marginLeft,
+                    y,
                     size: fontSize,
                     font,
                     color: rgb(1, 1, 1)
                 });
                 y -= fontSize * lineHeight;
             }
-
-            // spazio tra paragrafi
-            y -= fontSize * (lineHeight - 1);
         }
 
         const pdfBytes = await pdfDoc.save();
