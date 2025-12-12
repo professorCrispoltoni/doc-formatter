@@ -13,6 +13,7 @@
         pdfjsLib.GlobalWorkerOptions.workerSrc =
             'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <!-- Mammoth per leggere DOCX -->
     <script src="https://cdn.jsdelivr.net/npm/mammoth@1.5.0/mammoth.browser.min.js"></script>
 
@@ -188,90 +189,39 @@ async function extractTextFromDocx(file) {
 
 // ESPORTAZIONE PDF
 document.getElementById("exportPdf").addEventListener("click", exportPdf);
-    
-async function exportPdf() {
-    const status = document.getElementById("status");
+    function exportPdf() {
     const preview = document.getElementById("preview");
+    
+    // CREA DIV con anteprima ESATTA
+    const printDiv = document.createElement('div');
+    printDiv.style.cssText = `
+        font-family: Verdana, sans-serif !important;
+        font-size: ${document.getElementById("fontSize").value}px !important;
+        line-height: ${document.getElementById("lineHeight").value} !important;
+        background: black !important;
+        color: white !important;
+        padding: 40px !important;
+        width: 595px !important;
+        margin: 0 !important;
+        position: absolute !important;
+        left: -9999px !important;
+        top: -9999px !important;
+        white-space: pre-wrap !important;
+    `;
+    printDiv.textContent = preview.textContent;
 
-    if (!uploadedText.trim()) {
-        alert("Nessun testo.");
-        return;
-    }
+    document.body.appendChild(printDiv);
 
-    try {
-        status.textContent = "PDF…";
-
-        const { PDFDocument, StandardFonts, rgb } = PDFLib;
-        const pdfDoc = await PDFDocument.create();
-        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-
-        const fontSize = parseInt(document.getElementById("fontSize").value);
-        const lineHeight = parseFloat(document.getElementById("lineHeight").value);
-
-        let page = pdfDoc.addPage([595, 842]);
-        const marginLeft = 50;
-        const marginTop = 60;
-        const marginBottom = 60;
-        const pageHeight = 842;
-
-        drawBackground(page, rgb);
-        let y = pageHeight - marginTop;
-
-        // COPIA ESATTAMENTE L'ANTEPRESA (linea per linea)
-        const previewLines = preview.textContent.split('\n');
-        
-        for (let previewLine of previewLines) {
-            let line = previewLine.trim();
-            
-            // NUOVA PAGINA SE FINE PAGINA
-            if (y < marginBottom) {
-                page = pdfDoc.addPage([595, 842]);
-                drawBackground(page, rgb);
-                y = pageHeight - marginTop;
-            }
-
-            if (!line) {
-                y -= fontSize * 0.8; // riga vuota
-                continue;
-            }
-
-            // STAMPA LA RIGA INTERA (senza wrapping orizzontale!)
-            const textWidth = font.widthOfTextAtSize(line, fontSize);
-            if (textWidth < 495) { // larghezza pagina
-                page.drawText(line, {
-                    x: marginLeft,
-                    y,
-                    size: fontSize,
-                    font,
-                    color: rgb(1, 1, 1)
-                });
-            } else {
-                // Se troppo lunga, riduci font
-                page.drawText(line, {
-                    x: marginLeft,
-                    y,
-                    size: fontSize * 0.9,
-                    font,
-                    color: rgb(1, 1, 1)
-                });
-            }
-            
-            y -= fontSize * lineHeight;
-        }
-
-        const pdfBytes = await pdfDoc.save();
-        const blob = new Blob([pdfBytes], { type: "application/pdf" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "Documento.pdf";
-        a.click();
-        URL.revokeObjectURL(url);
-
-        status.textContent = "Fatto!";
-    } catch (err) {
-        alert(err.message);
-    }
+    html2pdf().set({
+        margin: 10,
+        filename: 'PDF-Dark.pdf',
+        image: { type: 'png', quality: 0.98 },
+        html2canvas: { scale: 2, backgroundColor: '#000000', useCORS: true },
+        jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+    }).from(printDiv).save().then(() => {
+        document.body.removeChild(printDiv);
+        document.getElementById("status").textContent = "PDF creato!";
+    });
 }
 
 
