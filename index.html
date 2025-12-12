@@ -13,6 +13,8 @@
 
     <!-- PDF.js per importare PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fontkit@1.8.1/dist/fontkit.umd.js"></script>
+
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc =
             "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
@@ -110,7 +112,10 @@ document.getElementById("exportPdf").addEventListener("click", async () => {
 
         const pdfDoc = await PDFLib.PDFDocument.create();
 
-        // ---- CARICA VERDANA DA FILE LOCALE ----
+        // 🔥 PASSO CRUCIALE: registra fontkit
+        pdfDoc.registerFontkit(fontkit);
+
+        // 🔥 CARICA VERDANA LOCALE
         const fontBytes = await fetch("verdana.ttf").then(r => r.arrayBuffer());
         const verdana = await pdfDoc.embedFont(fontBytes);
 
@@ -118,35 +123,39 @@ document.getElementById("exportPdf").addEventListener("click", async () => {
         const lineHeight = parseFloat(document.getElementById("lineHeight").value);
         const title = document.getElementById("title").value || "Documento";
 
-        let page = pdfDoc.addPage([595,842]);
+        let page = pdfDoc.addPage([595, 842]);
         let y = 780;
 
         drawBlackBG(page);
 
-        // titolo
+        // Titolo
         page.drawText(title, {
-            x: 50, y,
+            x: 50,
+            y,
             size: fontSize + 8,
             font: verdana,
-            color: PDFLib.rgb(1,1,1)
+            color: PDFLib.rgb(1, 1, 1)
         });
 
-        y -= (fontSize+16)*lineHeight;
+        y -= (fontSize + 16) * lineHeight;
 
-        // testo
+        // Corpo testo
         const lines = uploadedText.split("\n");
         for (const line of lines) {
             if (y < 50) {
-                page = pdfDoc.addPage([595,842]);
+                page = pdfDoc.addPage([595, 842]);
                 drawBlackBG(page);
                 y = 780;
             }
+
             page.drawText(line || " ", {
-                x: 50, y,
+                x: 50,
+                y,
                 size: fontSize,
                 font: verdana,
-                color: PDFLib.rgb(1,1,1)
+                color: PDFLib.rgb(1, 1, 1)
             });
+
             y -= fontSize * lineHeight;
         }
 
