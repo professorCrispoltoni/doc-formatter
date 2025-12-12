@@ -1,144 +1,320 @@
 <!DOCTYPE html>
 <html lang="it">
-<!DOCTYPE html>
-<html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dark PDF Converter</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <style>
-        * { box-sizing: border-box; }
-        body {
-            background: #111; color: #eee; font-family: Verdana, sans-serif;
-            padding: 20px; margin: 0;
-        }
-        h1 { margin-top: 0; }
-        .panel {
-            background: #1b1b1b; border: 1px solid #333;
-            padding: 20px; border-radius: 8px; margin-bottom: 20px;
-        }
-        label { display: block; margin: 10px 0 4px 0; font-size: 14px; }
-        input[type="number"], input[type="text"], input[type="file"] {
-            width: 100%; max-width: 320px; padding: 8px; border-radius: 4px;
-            border: 1px solid #444; background: #111;
-            color: #eee; font-family: Verdana, sans-serif;
-        }
-        .btn {
-            padding: 12px 24px; border-radius: 6px; border: none;
-            cursor: pointer; font-weight: bold; font-size: 14px;
-            background: #3d8db7; color: white; font-family: Verdana;
-        }
-        .btn:hover:not(:disabled) { background: #2a6a8e; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        #preview {
-            background: #000; color: #fff; padding: 20px;
-            border-radius: 8px; min-height: 200px; max-height: 400px;
-            overflow-y: auto; white-space: pre-wrap; font-size: 14px;
-        }
-        #status { margin-top: 10px; font-size: 13px; color: #aaa; }
-        #fileInfo { font-size: 13px; margin-top: 8px; color: #ccc; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dark PDF Converter</title>
+
+<!-- pdf-lib (solo core, senza fontkit) -->
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<!-- PDF.js per estrarre testo dai PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+</script>
+<!-- Mammoth per leggere DOCX -->
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.5.0/mammoth.browser.min.js"></script>
+
+<style>
+body {
+background: #111;
+color: #eee;
+font-family: Verdana, sans-serif;
+padding: 20px;
+}
+h1 { margin-top: 0; }
+.panel {
+background: #1b1b1b;
+border: 1px solid #333;
+padding: 20px;
+border-radius: 8px;
+margin-bottom: 20px;
+}
+.panel label {
+display: block;
+margin-top: 10px;
+margin-bottom: 4px;
+font-size: 14px;
+}
+.panel input[type="number"],
+.panel input[type="text"],
+.panel input[type="file"] {
+width: 100%;
+max-width: 320px;
+padding: 6px 8px;
+border-radius: 4px;
+border: 1px solid #444;
+background: #111;
+color: #eee;
+font-family: Verdana, sans-serif;
+font-size: 14px;
+}
+.btn {
+padding: 12px 20px;
+border-radius: 6px;
+border: none;
+cursor: pointer;
+font-weight: bold;
+font-family: Verdana, sans-serif;
+font-size: 14px;
+}
+.btn-primary {
+background: #3d8db7;
+color: white;
+}
+.btn-primary:hover:enabled {
+background: #2a6a8e;
+}
+.btn:disabled {
+opacity: 0.5;
+cursor: not-allowed;
+}
+#preview {
+white-space: pre-wrap;
+background: #000;
+color: #fff;
+padding: 20px;
+border-radius: 8px;
+min-height: 150px;
+line-height: 1.5;
+font-size: 14px;
+overflow-y: auto;
+max-height: 300px;
+}
+#status {
+margin-top: 10px;
+font-size: 13px;
+color: #aaa;
+}
+#fileInfo {
+font-size: 13px;
+margin-top: 8px;
+color: #ccc;
+}
+</style>
 </head>
+
 <body>
-    <h1>🌙 Dark PDF Converter</h1>
-    <p>Carica → Regola → Esporta PDF nero</p>
+<h1>Dark PDF Converter</h1>
+<p>TXT / PDF / DOCX → PDF con sfondo nero, testo bianco, font leggibile tipo Verdana, dimensione e interlinea configurabile.</p>
 
-    <div class="panel">
-        <label for="fileInput">📄 File (TXT, PDF, DOCX):</label>
-        <input type="file" id="fileInput" accept=".txt,.pdf,.docx">
-        <p id="fileInfo"></p>
-    </div>
+<!-- Upload -->
+<div class="panel">
+<label for="fileInput">File (TXT, PDF, DOCX):</label>
+<input type="file" id="fileInput" accept=".txt,.pdf,.docx">
+<p id="fileInfo"></p>
+</div>
 
-    <div class="panel">
-        <label for="fontSize">📏 Dimensione font:</label>
-        <input type="number" id="fontSize" value="16" min="12" max="24">
-        <label for="lineHeight">📐 Interlinea:</label>
-        <input type="number" id="lineHeight" value="1.8" step="0.1" min="1" max="3">
-    </div>
+<!-- Impostazioni -->
+<div class="panel">
+<label for="fontSize">Font size (px):</label>
+<input type="number" id="fontSize" value="14" min="12" max="30">
 
-    <div class="panel">
-        <h3>👁️ Anteprima (esatta)</h3>
-        <div id="preview">Carica un file per vedere...</div>
-    </div>
+<label for="lineHeight">Interlinea:</label>
+<input type="number" id="lineHeight" value="1.5" min="1" max="3" step="0.1">
 
-    <div class="panel">
-        <button class="btn" id="exportPdf" disabled>💾 Esporta PDF Dark</button>
-        <p id="status"></p>
-    </div>
+<label for="title">Titolo documento (opzionale):</label>
+<input type="text" id="title" placeholder="Titolo">
+</div>
+
+<!-- Anteprima -->
+<div class="panel">
+<h3>Anteprima</h3>
+<div id="preview">Carica un file per vedere il contenuto…</div>
+</div>
+
+<!-- Esporta -->
+<div class="panel">
+<button class="btn btn-primary" id="exportPdf" disabled>Esporta PDF Dark</button>
+<p id="status"></p>
+</div>
 
 <script>
-let uploadedText = '';
+let uploadedText = "";
 
-document.getElementById('fileInput').addEventListener('change', async e => {
-    const file = e.target.files[0];
-    if (!file) return;
+// CARICAMENTO FILE
+document.getElementById("fileInput").addEventListener("change", async e => {
+const file = e.target.files[0];
+if (!file) return;
 
-    document.getElementById('status').textContent = '🔄 Lettura...';
-    
-    try {
-        uploadedText = await file.text();
-        document.getElementById('preview').style.fontSize = document.getElementById('fontSize').value + 'px';
-        document.getElementById('preview').style.lineHeight = document.getElementById('lineHeight').value;
-        document.getElementById('preview').textContent = uploadedText;
-        document.getElementById('fileInfo').textContent = `✅ ${file.name}`;
-        document.getElementById('exportPdf').disabled = false;
-        document.getElementById('status').textContent = '✅ Pronto!';
-    } catch {
-        alert('❌ Errore file');
-    }
-});
+const status = document.getElementById("status");
+status.textContent = "Lettura file…";
 
-document.getElementById('fontSize').addEventListener('input', updatePreview);
-document.getElementById('lineHeight').addEventListener('input', updatePreview);
-
-function updatePreview() {
-    if (uploadedText) {
-        document.getElementById('preview').style.fontSize = document.getElementById('fontSize').value + 'px';
-        document.getElementById('preview').style.lineHeight = document.getElementById('lineHeight').value;
-    }
+try {
+if (file.type === "text/plain") {
+uploadedText = await file.text();
+} else if (file.type === "application/pdf") {
+uploadedText = await extractTextFromPdf(file);
+} else if (file.type ===
+"application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+uploadedText = await extractTextFromDocx(file);
+} else {
+alert("Tipo file non supportato");
+status.textContent = "Tipo file non supportato.";
+return;
 }
 
-document.getElementById('exportPdf').addEventListener('click', () => {
-    if (!uploadedText) return;
-    
-    document.getElementById('status').textContent = '🖨️ PDF...';
-    
-    const printDiv = document.createElement('div');
-    printDiv.innerHTML = `<div style="
-        font-family: Verdana, sans-serif !important;
-        font-size: ${document.getElementById('fontSize').value}px !important;
-        line-height: ${document.getElementById('lineHeight').value} !important;
-        background: #000 !important;
-        color: #fff !important;
-        padding: 3cm 2cm !important;
-        width: 21cm !important;
-        margin: 0 !important;
-        white-space: pre-wrap !important;
-        word-wrap: break-word !important;
-    ">${uploadedText.replace(/\n/g, '<br>')}</div>`;
-    
-    document.body.appendChild(printDiv);
-    
-    html2pdf().set({
-        filename: 'PDF-Dark.pdf',
-        margin: 0,
-        image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { 
-            scale: 2, 
-            useCORS: true,
-            backgroundColor: '#000000'
-        },
-        jsPDF: { 
-            unit: 'cm', 
-            format: 'a4', 
-            orientation: 'portrait' 
-        }
-    }).from(printDiv).save().then(() => {
-        document.body.removeChild(printDiv);
-        document.getElementById('status').textContent = '✅ PDF scaricato!';
-    });
+document.getElementById("fileInfo").textContent = "Caricato: " + file.name;
+document.getElementById("preview").textContent = uploadedText.substring(0, 2000);
+document.getElementById("exportPdf").disabled = false;
+status.textContent = "File pronto.";
+} catch (err) {
+console.error(err);
+status.textContent = "Errore nella lettura del file.";
+alert("Errore lettura file: " + err);
+}
 });
+
+// Estrazione testo da PDF
+async function extractTextFromPdf(file) {
+const buffer = await file.arrayBuffer();
+const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+let text = "";
+for (let i = 1; i <= pdf.numPages; i++) {
+const page = await pdf.getPage(i);
+const content = await page.getTextContent();
+text += content.items.map(it => it.str).join(" ") + "\n\n";
+}
+return text;
+}
+
+// Estrazione testo da DOCX
+async function extractTextFromDocx(file) {
+const arrayBuffer = await file.arrayBuffer();
+const result = await mammoth.extractRawText({ arrayBuffer });
+return result.value;
+}
+
+// ESPORTAZIONE PDF
+document.getElementById("exportPdf").addEventListener("click", exportPdf);
+
+async function exportPdf() {
+const status = document.getElementById("status");
+
+if (!uploadedText || !uploadedText.trim()) {
+alert("Nessun testo da esportare.");
+return;
+}
+
+try {
+status.textContent = "Generazione PDF…";
+
+const { PDFDocument, StandardFonts, rgb } = PDFLib;
+const pdfDoc = await PDFDocument.create();
+
+// Font standard integrato (simile a Verdana per leggibilità)
+const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+const fontSize = parseInt(document.getElementById("fontSize").value);
+const lineHeight = parseFloat(document.getElementById("lineHeight").value);
+const title = document.getElementById("title").value || "Documento";
+
+let page = pdfDoc.addPage([595, 842]); // A4 approx in punti
+const pageWidth = 595;
+const pageHeight = 842;
+const marginLeft = 50;
+const marginTop = 60;
+const marginBottom = 60;
+const maxWidth = pageWidth - marginLeft * 2;
+
+drawBackground(page, rgb);
+
+let y = pageHeight - marginTop;
+
+// Titolo
+if (title.trim()) {
+const titleSize = fontSize + 6;
+page.drawText(title, {
+x: marginLeft,
+y,
+size: titleSize,
+font,
+color: rgb(1, 1, 1)
+});
+y -= titleSize * lineHeight;
+}
+
+// Testo con wrapping manuale
+const paragraphs = uploadedText.split("\n");
+for (let para of paragraphs) {
+const words = para.split(" ");
+let line = "";
+
+for (let word of words) {
+const testLine = line ? line + " " + word : word;
+const textWidth = font.widthOfTextAtSize(testLine, fontSize);
+
+if (textWidth > maxWidth) {
+if (y < marginBottom) {
+page = pdfDoc.addPage([595, 842]);
+drawBackground(page, rgb);
+y = pageHeight - marginTop;
+}
+page.drawText(line, {
+x: marginLeft,
+y,
+size: fontSize,
+font,
+color: rgb(1, 1, 1)
+});
+y -= fontSize * lineHeight;
+line = word;
+} else {
+line = testLine;
+}
+}
+
+if (line) {
+if (y < marginBottom) {
+page = pdfDoc.addPage([595, 842]);
+drawBackground(page, rgb);
+y = pageHeight - marginTop;
+}
+page.drawText(line, {
+x: marginLeft,
+y,
+size: fontSize,
+font,
+color: rgb(1, 1, 1)
+});
+y -= fontSize * lineHeight;
+}
+
+// spazio tra paragrafi
+y -= fontSize * (lineHeight - 1);
+}
+
+const pdfBytes = await pdfDoc.save();
+const blob = new Blob([pdfBytes], { type: "application/pdf" });
+const url = URL.createObjectURL(blob);
+const a = document.createElement("a");
+a.href = url;
+a.download = title + ".pdf";
+document.body.appendChild(a);
+a.click();
+document.body.removeChild(a);
+URL.revokeObjectURL(url);
+
+status.textContent = "PDF creato con successo!";
+} catch (err) {
+console.error("Errore PDF:", err);
+status.textContent = "Errore nella generazione del PDF.";
+alert("Errore PDF: " + err);
+}
+}
+
+function drawBackground(page, rgb) {
+const { width, height } = page.getSize();
+page.drawRectangle({
+x: 0,
+y: 0,
+width,
+height,
+color: rgb(0, 0, 0)
+});
+}
 </script>
+
 </body>
 </html>
