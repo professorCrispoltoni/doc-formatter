@@ -5,14 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dark PDF Converter</title>
 
-    <!-- pdf-lib (solo core, niente fontkit) -->
+    <!-- pdf-lib -->
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <!-- fontkit per font TTF personalizzati -->
+    <script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+
     <!-- PDF.js per estrarre testo dai PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc =
             'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
+
     <!-- Mammoth per leggere DOCX -->
     <script src="https://cdn.jsdelivr.net/npm/mammoth@1.5.0/mammoth.browser.min.js"></script>
 
@@ -97,7 +101,7 @@
 
 <body>
     <h1>Dark PDF Converter</h1>
-    <p>TXT / PDF / DOCX → PDF con sfondo nero, testo bianco, font simile a Verdana, dimensione ≥14 e interlinea ≥1.5 </p>
+    <p>TXT / PDF / DOCX → PDF con sfondo nero, testo bianco, Verdana, font ≥14 e interlinea configurabile.</p>
 
     <!-- Upload -->
     <div class="panel">
@@ -109,10 +113,10 @@
     <!-- Impostazioni -->
     <div class="panel">
         <label for="fontSize">Font size (px):</label>
-        <input type="number" id="fontSize" value="14" min="14" max="30">
+        <input type="number" id="fontSize" value="14" min="12" max="30">
 
         <label for="lineHeight">Interlinea:</label>
-        <input type="number" id="lineHeight" value="1.5" min="1.5" max="3" step="0.1">
+        <input type="number" id="lineHeight" value="1.5" min="1" max="3" step="0.1">
 
         <label for="title">Titolo documento (opzionale):</label>
         <input type="text" id="title" placeholder="Titolo">
@@ -200,12 +204,126 @@ async function exportPdf() {
     try {
         status.textContent = "Generazione PDF…";
 
-        const { PDFDocument, StandardFonts, rgb } = PDFLib;
+        const { PDFDocument, rgb } = PDFLib;
+
+        // registra fontkit PRIMA di creare/embeddare font custom
+        PDFDocument.registerFontkit(fontkit);
+
         const pdfDoc = await PDFDocument.create();
 
-        // Font standard incorporato (simile a Verdana)
-        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        // carica Verdana (index.html e verdana.ttf nella stessa cartella)
+        const fontBytes = await fetch("verdana.ttf").then(r => r.arrayBuffer());
+        const font = await pdfDoc.embedFont(fontBytes);
 
         const fontSize = parseInt(document.getElementById("fontSize").value);
         const lineHeight = parseFloat(document.getElementById("lineHeight").value);
-        const title = document.getElementById("title").value
+        const title = document.getElementById("title").value || "Documento";
+
+        let page = pdfDoc.addPage([595, 842]); // A4 approx in punti
+        const pageWidth = 595;
+        const pageHeight = 842;
+        const marginLeft = 50;
+        const marginTop = 60;
+        const marginBottom = 60;
+        const maxWidth = pageWidth - marginLeft * 2;
+
+        drawBackground(page, rgb);
+
+        let y = pageHeight - marginTop;
+
+        // Titolo
+        if (title.trim()) {
+            const titleSize = fontSize + 6;
+            page.drawText(title, {
+                x: marginLeft,
+                y,
+                size: titleSize,
+                font,
+                color: rgb(1, 1, 1)
+            });
+            y -= titleSize * lineHeight;
+        }
+
+        // Testo con wrapping manuale
+        const paragraphs = uploadedText.split("\n");
+        for (let para of paragraphs) {
+            const words = para.split(" ");
+            let line = "";
+
+            for (let word of words) {
+                const testLine = line ? line + " " + word : word;
+                const textWidth = font.widthOfTextAtSize(testLine, fontSize);
+
+                if (textWidth > maxWidth) {
+                    if (y < marginBottom) {
+                        page = pdfDoc.addPage([595, 842]);
+                        drawBackground(page, rgb);
+                        y = pageHeight - marginTop;
+                    }
+                    page.drawText(line, {
+                        x: marginLeft,
+                        y,
+                        size: fontSize,
+                        font,
+                        color: rgb(1, 1, 1)
+                    });
+                    y -= fontSize * lineHeight;
+                    line = word;
+                } else {
+                    line = testLine;
+                }
+            }
+
+            if (line) {
+                if (y < marginBottom) {
+                    page = pdfDoc.addPage([595, 842]);
+                    drawBackground(page, rgb);
+                    y = pageHeight - marginTop;
+                }
+                page.drawText(line, {
+                    x: marginLeft,
+                    y,
+                    size: fontSize,
+                    font,
+                    color: rgb(1, 1, 1)
+                });
+                y -= fontSize * lineHeight;
+            }
+
+            // spazio tra paragrafi
+            y -= fontSize * (lineHeight - 1);
+        }
+
+        const pdfBytes = await pdfDoc.save();
+        const blob = new Blob([pdfBytes], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = title + ".pdf";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        status.textContent = "PDF creato con successo!";
+    } catch (err) {
+        console.error("Errore PDF:", err);
+        status.textContent = "Errore nella generazione del PDF.";
+        alert("Errore PDF: " + err);
+    }
+}
+
+function drawBackground(page, rgb) {
+    const { width, height } = page.getSize();
+    page.drawRectangle({
+        x: 0,
+        y: 0,
+        width,
+        height,
+        color: rgb(0, 0, 0)
+    });
+}
+</script>
+
+</body>
+</html>
