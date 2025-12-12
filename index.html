@@ -1,124 +1,90 @@
 <!DOCTYPE html>
 <html lang="it">
+
 <head>
-<meta charset="UTF-8">
-<title>PDF Nero per Ipovedenti</title>
+    <meta charset="UTF-8">
+    <title>PDF Nero Ipovedenti</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
 </head>
 
-<body style="background:#111; color:white; font-family:Arial; padding:40px">
+<body style="background:#111; color:white; padding:40px; font-family:Arial">
 
-<h2>Converti file in PDF ad alto contrasto (Verdana bianco su nero)</h2>
+    <h2>Converti file in PDF (Verdana, bianco su nero)</h2>
 
-<input type="file" id="fileInput" accept=".txt,.pdf,.docx" />
-<button id="btnPdf" disabled>Esporta PDF</button>
+    <input type="file" id="fileInput" accept=".txt" />
+    <button id="btnPdf" disabled>Esporta PDF</button>
 
-<p id="status"></p>
+    <p id="status"></p>
 
-<script type="module">
-import { PDFDocument, rgb } from "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.esm.js";
-import fontkit from "https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.0.0/dist/fontkit.esm.js";
+    <script>
+        let uploadedText = "";
 
-// ------------------------------------
-// Utility
-// ------------------------------------
-function setStatus(msg){
-    document.getElementById("status").textContent = msg;
-}
-
-let uploadedText = "";
-
-// ------------------------------------
-// Lettura file
-// ------------------------------------
-document.getElementById("fileInput").addEventListener("change", async (e)=>{
-    const file = e.target.files[0];
-    if(!file) return;
-
-    setStatus("Caricamento...");
-
-    if(file.type === "text/plain"){
-        uploadedText = await file.text();
-    } else {
-        setStatus("Per ora supportato solo TXT, aggiungo PDF/DOCX dopo.");
-        return;
-    }
-
-    setStatus("Caricamento avvenuto con successo.");
-    document.getElementById("btnPdf").disabled = false;
-});
-
-// ------------------------------------
-// Esporta PDF
-// ------------------------------------
-document.getElementById("btnPdf").addEventListener("click", async ()=>{
-
-    try{
-        if(!uploadedText){
-            setStatus("Nessun testo caricato.");
-            return;
+        function setStatus(msg) {
+            document.getElementById("status").textContent = msg;
         }
 
-        setStatus("Generazione PDF...");
+        // Carica font Verdana nel virtual file system di pdfmake
+        async function loadCustomFonts() {
+            const v = await fetch("verdana.ttf").then(r => r.arrayBuffer());
+            const vb = await fetch("verdanab.ttf").then(r => r.arrayBuffer());
 
-        const pdfDoc = await PDFDocument.create();
+            pdfMake.vfs["verdana.ttf"] = btoa(String.fromCharCode(...new Uint8Array(v)));
+            pdfMake.vfs["verdanab.ttf"] = btoa(String.fromCharCode(...new Uint8Array(vb)));
 
-        // 🔥 1. Registra fontkit
-        pdfDoc.registerFontkit(fontkit);
+            pdfMake.fonts = {
+                verdana: {
+                    normal: "verdana.ttf",
+                    bold: "verdanab.ttf",
+                    italics: "verdana.ttf",
+                    bolditalics: "verdanab.ttf"
+                }
+            };
+        }
 
-        // 🔥 2. Carica font Verdana locale
-        const fontBytes = await fetch("verdana.ttf").then(r=>r.arrayBuffer());
-        const verdana = await pdfDoc.embedFont(fontBytes);
+        loadCustomFonts();
 
-        const page = pdfDoc.addPage([595, 842]);
-        const fontSize = 14;
-        const lineHeight = fontSize * 1.5;
-        let y = 800;
+        document.getElementById("fileInput").addEventListener("change", async e => {
+            const file = e.target.files[0];
+            if (!file) return;
 
-        // Sfondo nero pieno
-        page.drawRectangle({
-            x:0, y:0, width:595, height:842,
-            color: rgb(0,0,0)
+            setStatus("Caricamento...");
+
+            uploadedText = await file.text();
+
+            setStatus("Caricamento avvenuto con successo.");
+            document.getElementById("btnPdf").disabled = false;
         });
 
-        // Testo bianco Verdana
-        const lines = uploadedText.split("\n");
-
-        for(const line of lines){
-            if(y < 40){
-                const p = pdfDoc.addPage([595,842]);
-                p.drawRectangle({x:0,y:0,width:595,height:842,color:rgb(0,0,0)});
-                y = 800;
+        document.getElementById("btnPdf").addEventListener("click", () => {
+            if (!uploadedText) {
+                setStatus("Nessun testo caricato.");
+                return;
             }
 
-            page.drawText(line || " ", {
-                x: 40,
-                y: y,
-                size: fontSize,
-                font: verdana,
-                color: rgb(1,1,1)
-            });
+            setStatus("Generazione PDF...");
 
-            y -= lineHeight;
-        }
+            const lines = uploadedText.split("\n");
 
-        const pdfBytes = await pdfDoc.save();
+            const docDefinition = {
+                pageMargins: [40, 40, 40, 40],
+                background: function () {
+                    return { canvas: [{ type: 'rect', x: 0, y: 0, w: 595, h: 842, color: 'black' }] };
+                },
+                content: lines.map(line => ({
+                    text: line || " ",
+                    font: "verdana",
+                    fontSize: 14,
+                    color: "white",
+                    lineHeight: 1.5
+                }))
+            };
 
-        // Download
-        const blob = new Blob([pdfBytes], {type:"application/pdf"});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "testo_nero.pdf";
-        a.click();
-        URL.revokeObjectURL(url);
+            pdfMake.createPdf(docDefinition).download("testo_nero.pdf");
 
-        setStatus("PDF esportato con successo.");
-
-    } catch(err){
-        setStatus("Errore PDF: " + err);
-    }
-});
-</script>
+            setStatus("PDF esportato con successo.");
+        });
+    </script>
 
 </body>
 </html>
