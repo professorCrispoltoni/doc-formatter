@@ -6,11 +6,13 @@
     <title>Dark PDF Converter</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
+        * { box-sizing: border-box; }
         body {
             background: #111;
             color: #eee;
             font-family: Verdana, sans-serif;
             padding: 20px;
+            margin: 0;
         }
         h1 { margin-top: 0; }
         .panel {
@@ -20,169 +22,128 @@
             border-radius: 8px;
             margin-bottom: 20px;
         }
-        label {
-            display: block;
-            margin-top: 10px;
-            margin-bottom: 4px;
-            font-size: 14px;
-        }
+        label { display: block; margin: 10px 0 4px 0; font-size: 14px; }
         input[type="number"], input[type="text"], input[type="file"] {
-            width: 100%;
-            max-width: 320px;
-            padding: 6px 8px;
-            border-radius: 4px;
-            border: 1px solid #444;
-            background: #111;
-            color: #eee;
-            font-family: Verdana, sans-serif;
-            font-size: 14px;
+            width: 100%; max-width: 320px;
+            padding: 8px; border-radius: 4px;
+            border: 1px solid #444; background: #111;
+            color: #eee; font-family: Verdana, sans-serif;
         }
         .btn {
-            padding: 12px 20px;
-            border-radius: 6px;
-            border: none;
-            cursor: pointer;
-            font-weight: bold;
-            font-family: Verdana, sans-serif;
-            font-size: 14px;
-            background: #3d8db7;
-            color: white;
+            padding: 12px 24px; border-radius: 6px; border: none;
+            cursor: pointer; font-weight: bold; font-size: 14px;
+            background: #3d8db7; color: white; font-family: Verdana;
         }
         .btn:hover:not(:disabled) { background: #2a6a8e; }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         #preview {
-            white-space: pre-wrap;
-            background: #000;
-            color: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            min-height: 150px;
-            line-height: 1.5;
-            font-size: 14px;
-            overflow-y: auto;
-            max-height: 300px;
+            background: #000; color: #fff; padding: 20px;
+            border-radius: 8px; min-height: 200px; max-height: 400px;
+            overflow-y: auto; white-space: pre-wrap; font-size: 14px;
         }
         #status { margin-top: 10px; font-size: 13px; color: #aaa; }
         #fileInfo { font-size: 13px; margin-top: 8px; color: #ccc; }
     </style>
 </head>
 <body>
-    <h1>Dark PDF Converter</h1>
-    <p>Carica TXT/PDF/DOCX → PDF nero con testo bianco</p>
+    <h1>🌙 Dark PDF Converter</h1>
+    <p>Carica → Regola → Esporta PDF nero</p>
 
     <div class="panel">
-        <label for="fileInput">File (TXT, PDF, DOCX):</label>
+        <label for="fileInput">📄 File (TXT, PDF, DOCX):</label>
         <input type="file" id="fileInput" accept=".txt,.pdf,.docx">
         <p id="fileInfo"></p>
     </div>
 
     <div class="panel">
-        <label for="fontSize">Dimensione font (px):</label>
+        <label for="fontSize">📏 Dimensione font:</label>
         <input type="number" id="fontSize" value="16" min="12" max="24">
-        <label for="lineHeight">Interlinea:</label>
-        <input type="number" id="lineHeight" value="1.8" min="1" max="3" step="0.1">
+        <label for="lineHeight">📐 Interlinea:</label>
+        <input type="number" id="lineHeight" value="1.8" step="0.1" min="1" max="3">
     </div>
 
     <div class="panel">
-        <h3>Anteprima</h3>
-        <div id="preview">Carica un file...</div>
+        <h3>👁️ Anteprima (esatta)</h3>
+        <div id="preview">Carica un file per vedere...</div>
     </div>
 
     <div class="panel">
-        <button class="btn" id="exportPdf" disabled>Esporta PDF Dark</button>
+        <button class="btn" id="exportPdf" disabled>💾 Esporta PDF Dark</button>
         <p id="status"></p>
     </div>
 
 <script>
 let uploadedText = '';
 
-document.getElementById('fileInput').addEventListener('change', async (e) => {
+document.getElementById('fileInput').addEventListener('change', async e => {
     const file = e.target.files[0];
     if (!file) return;
 
-    const status = document.getElementById('status');
-    status.textContent = 'Lettura...';
-
+    document.getElementById('status').textContent = '🔄 Lettura...';
+    
     try {
-        if (file.type === 'text/plain') {
-            uploadedText = await file.text();
-        } else if (file.type === 'application/pdf') {
-            uploadedText = await readPdf(file);
-        } else if (file.name.endsWith('.docx')) {
-            uploadedText = await readDocx(file);
-        } else {
-            return alert('Formato non supportato');
-        }
-
-        document.getElementById('fileInfo').textContent = `Caricato: ${file.name}`;
+        uploadedText = await file.text();
+        document.getElementById('preview').style.fontSize = document.getElementById('fontSize').value + 'px';
+        document.getElementById('preview').style.lineHeight = document.getElementById('lineHeight').value;
         document.getElementById('preview').textContent = uploadedText;
+        document.getElementById('fileInfo').textContent = `✅ ${file.name}`;
         document.getElementById('exportPdf').disabled = false;
-        status.textContent = 'Pronto!';
-    } catch (err) {
-        status.textContent = 'Errore lettura';
-        alert('Errore: ' + err.message);
+        document.getElementById('status').textContent = '✅ Pronto!';
+    } catch {
+        alert('❌ Errore file');
     }
 });
 
-async function readPdf(file) {
-    const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    
-    const buffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument(buffer).promise;
-    let text = '';
-    
-    for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        text += content.items.map(item => item.str).join(' ') + '\n\n';
+document.getElementById('fontSize').addEventListener('input', updatePreview);
+document.getElementById('lineHeight').addEventListener('input', updatePreview);
+
+function updatePreview() {
+    if (uploadedText) {
+        document.getElementById('preview').style.fontSize = document.getElementById('fontSize').value + 'px';
+        document.getElementById('preview').style.lineHeight = document.getElementById('lineHeight').value;
     }
-    return text;
 }
 
-async function readDocx(file) {
-    const mammoth = await import('https://cdn.jsdelivr.net/npm/mammoth@1.5.0/mammoth.browser.min.js');
-    const arrayBuffer = await file.arrayBuffer();
-    const result = await mammoth.default.extractRawText({ arrayBuffer });
-    return result.value;
-}
-
-document.getElementById('exportPdf').addEventListener('click', exportPdf);
-
-function exportPdf() {
-    if (!uploadedText.trim()) return alert('Nessun testo');
-
-    const fontSize = document.getElementById('fontSize').value;
-    const lineHeight = document.getElementById('lineHeight').value;
-
+document.getElementById('exportPdf').addEventListener('click', () => {
+    if (!uploadedText) return;
+    
+    document.getElementById('status').textContent = '🖨️ PDF...';
+    
     const printDiv = document.createElement('div');
-    printDiv.style.cssText = `
+    printDiv.innerHTML = `<div style="
         font-family: Verdana, sans-serif !important;
-        font-size: ${fontSize}px !important;
-        line-height: ${lineHeight} !important;
-        background: black !important;
-        color: white !important;
-        padding: 40px !important;
+        font-size: ${document.getElementById('fontSize').value}px !important;
+        line-height: ${document.getElementById('lineHeight').value} !important;
+        background: #000 !important;
+        color: #fff !important;
+        padding: 3cm 2cm !important;
         width: 21cm !important;
         margin: 0 !important;
         white-space: pre-wrap !important;
         word-wrap: break-word !important;
-    `;
-    printDiv.textContent = uploadedText;
-
+    ">${uploadedText.replace(/\n/g, '<br>')}</div>`;
+    
     document.body.appendChild(printDiv);
-
+    
     html2pdf().set({
-        margin: [1, 1, 1, 1],
         filename: 'PDF-Dark.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, backgroundColor: '#000000', useCORS: true },
-        jsPDF: { unit: 'cm', format: 'a4', orientation: 'portrait' }
+        margin: 0,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { 
+            scale: 2, 
+            useCORS: true,
+            backgroundColor: '#000000'
+        },
+        jsPDF: { 
+            unit: 'cm', 
+            format: 'a4', 
+            orientation: 'portrait' 
+        }
     }).from(printDiv).save().then(() => {
         document.body.removeChild(printDiv);
-        document.getElementById('status').textContent = 'PDF creato!';
+        document.getElementById('status').textContent = '✅ PDF scaricato!';
     });
-}
+});
 </script>
 </body>
 </html>
