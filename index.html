@@ -232,18 +232,17 @@ async function exportPdf() {
             y -= titleSize * lineHeight + 20;
         }
 
-        // Processa paragrafi mantenendo struttura
+        // Processa riga per riga
         const lines = uploadedText.split("\n");
-        for (let line of lines) {
-            line = line.trim();
+        for (let i = 0; i < lines.length; i++) {
+            let line = lines[i].trim();
             if (!line) {
-                y -= fontSize * 0.5; // spazio vuoto
+                y -= fontSize * 0.3;
                 continue;
             }
 
-            // RILEVA TITOLI (maiuscolo o inizia con numeri)
-            if (line === line.toUpperCase() || /^\d+\./.test(line) || /^[-•*] /.test(line) === false) {
-                // Titolo: font più grande, centrato
+            // === TITOLO (maiuscolo O numero.) ===
+            if (line === line.toUpperCase() || /^\d+\.\s/.test(line)) {
                 const titleSize = fontSize + 2;
                 if (y < marginBottom) {
                     page = pdfDoc.addPage([595, 842]);
@@ -255,32 +254,30 @@ async function exportPdf() {
                     y,
                     size: titleSize,
                     font,
-                    color: rgb(0.8, 1, 1) // azzurro chiaro
+                    color: rgb(0.7, 0.9, 1) // azzurro chiaro
                 });
-                y -= titleSize * lineHeight + 10;
+                y -= titleSize * lineHeight + 8;
                 continue;
             }
 
-            // RILEVA ELENCHI PUNTATI (- • *)
-            if (/^[-•*] /.test(line)) {
-                const bullet = "• ";
-                const content = line.substring(2); // toglie il primo carattere
+            // === ELENCO PUNTATO (• - *) ===
+            if (/^[-•*]\s/.test(lines[i])) {
+                const bulletText = lines[i].substring(0, 2) + " "; // • o - + spazio
+                const content = lines[i].substring(2);
                 if (y < marginBottom) {
                     page = pdfDoc.addPage([595, 842]);
                     drawBackground(page, rgb);
                     y = pageHeight - marginTop;
                 }
-                
-                // Punteggio + testo indentato
-                page.drawText(bullet, {
+                page.drawText(bulletText, {
                     x: marginLeft,
                     y,
                     size: fontSize,
                     font,
-                    color: rgb(0.8, 1, 1)
+                    color: rgb(0.7, 0.9, 1)
                 });
                 page.drawText(content, {
-                    x: marginLeft + 15,
+                    x: marginLeft + 20,
                     y,
                     size: fontSize,
                     font,
@@ -290,33 +287,38 @@ async function exportPdf() {
                 continue;
             }
 
-            // Testo normale con wrapping
+            // === TESTO NORMALE (con wrapping) ===
             const words = line.split(" ");
             let currentLine = "";
+            
             for (let word of words) {
                 const testLine = currentLine ? currentLine + " " + word : word;
                 const textWidth = font.widthOfTextAtSize(testLine, fontSize);
 
                 if (textWidth > maxWidth) {
+                    // Stampa linea corrente
                     if (y < marginBottom) {
                         page = pdfDoc.addPage([595, 842]);
                         drawBackground(page, rgb);
                         y = pageHeight - marginTop;
                     }
-                    page.drawText(currentLine, {
-                        x: marginLeft,
-                        y,
-                        size: fontSize,
-                        font,
-                        color: rgb(1, 1, 1)
-                    });
-                    y -= fontSize * lineHeight;
+                    if (currentLine) {
+                        page.drawText(currentLine, {
+                            x: marginLeft,
+                            y,
+                            size: fontSize,
+                            font,
+                            color: rgb(1, 1, 1)
+                        });
+                        y -= fontSize * lineHeight;
+                    }
                     currentLine = word;
                 } else {
                     currentLine = testLine;
                 }
             }
 
+            // Ultima linea
             if (currentLine && y >= marginBottom) {
                 page.drawText(currentLine, {
                     x: marginLeft,
