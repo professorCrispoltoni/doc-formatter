@@ -192,7 +192,7 @@ document.getElementById("exportPdf").addEventListener("click", exportPdf);
 async function exportPdf() {
     const status = document.getElementById("status");
 
-    if (!uploadedText || !uploadedText.trim()) {
+    if (!uploadedText.trim() === '') {
         alert("Nessun testo da esportare.");
         return;
     }
@@ -206,7 +206,6 @@ async function exportPdf() {
 
         const fontSize = parseInt(document.getElementById("fontSize").value);
         const lineHeight = parseFloat(document.getElementById("lineHeight").value);
-        const customTitle = document.getElementById("title").value.trim();
 
         let page = pdfDoc.addPage([595, 842]);
         const pageWidth = 595;
@@ -219,28 +218,18 @@ async function exportPdf() {
         drawBackground(page, rgb);
         let y = pageHeight - marginTop;
 
-        // TITOLO SOLO SE LO SCRIVI TU
-        if (customTitle) {
-            page.drawText(customTitle, {
-                x: marginLeft,
-                y,
-                size: fontSize + 6,
-                font,
-                color: rgb(0.8, 1, 1)
-            });
-            y -= (fontSize + 6) * 1.2 + 15;
-        }
-
-        // TESTO SEMPLICE: mantiene a capo + wrapping orizzontale
+        // SPLIT ESATTO per riga (mantiene TUTTI gli a capo)
         const lines = uploadedText.split('\n');
         for (let line of lines) {
-            let cleanLine = line.replace(/\s+/g, ' ').trim(); // solo pulisce spazi
-            if (!cleanLine) {
-                y -= fontSize * 0.3;
+            let cleanLine = line.replace(/\s{2,}/g, ' ').trim(); // solo spazi eccessivi
+            
+            if (cleanLine === '') {
+                // RIGA VUOTA = SPAZIO DOPPIO
+                y -= fontSize * lineHeight * 1.5;
                 continue;
             }
 
-            // WRAPPING ORIZZONTALE (non verticale)
+            // WRAPPING ORIZZONTALE per riga corrente
             const words = cleanLine.split(' ');
             let currentLine = '';
             
@@ -258,9 +247,10 @@ async function exportPdf() {
                             font,
                             color: rgb(1, 1, 1)
                         });
-                        y -= fontSize * lineHeight;
                     }
+                    y -= fontSize * lineHeight;
                     
+                    // Nuova pagina se serve
                     if (y < marginBottom) {
                         page = pdfDoc.addPage([595, 842]);
                         drawBackground(page, rgb);
@@ -273,7 +263,7 @@ async function exportPdf() {
                 }
             }
 
-            // Ultima riga
+            // Ultima parola della riga
             if (currentLine && y >= marginBottom) {
                 page.drawText(currentLine, {
                     x: marginLeft,
@@ -282,8 +272,8 @@ async function exportPdf() {
                     font,
                     color: rgb(1, 1, 1)
                 });
-                y -= fontSize * lineHeight;
             }
+            y -= fontSize * lineHeight;
         }
 
         const pdfBytes = await pdfDoc.save();
@@ -291,7 +281,7 @@ async function exportPdf() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = (customTitle || "PDF-Dark") + ".pdf";
+        a.download = "PDF-Dark.pdf";
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -299,9 +289,9 @@ async function exportPdf() {
 
         status.textContent = "PDF creato!";
     } catch (err) {
-        console.error("Errore:", err);
-        status.textContent = "Errore PDF.";
-        alert("Errore: " + err.message);
+        console.error(err);
+        status.textContent = "Errore.";
+        alert(err.message);
     }
 }
 
