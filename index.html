@@ -8,220 +8,188 @@
     <!-- pdf-lib -->
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 
-    <!-- PDF.js per estrarre testo dai PDF caricati -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
-
-    <!-- Mammoth per leggere docx -->
+    <!-- Mammoth (DOCX lettura) -->
     <script src="https://cdn.jsdelivr.net/npm/mammoth@1.5.0/mammoth.browser.min.js"></script>
 
+    <!-- PDF.js per importare PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+            "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    </script>
+
 <style>
-    body {
-        background: #111;
-        color: #eee;
-        font-family: Verdana, sans-serif;
-        padding: 20px;
-    }
-    .panel {
-        background: #1b1b1b;
-        border: 1px solid #333;
-        padding: 20px;
-        border-radius: 8px;
-        margin-bottom: 20px;
-    }
-    .btn {
-        padding: 12px 20px;
-        border-radius: 6px;
-        border: none;
-        cursor: pointer;
-        font-weight: bold;
-    }
-    .btn-primary {
-        background: #3d8db7;
-        color: white;
-    }
-    .btn-primary:hover {
-        background: #2a6a8e;
-    }
-    #preview {
-        white-space: pre-wrap;
-        background: #000;
-        color: #fff;
-        padding: 20px;
-        border-radius: 8px;
-        min-height: 150px;
-        line-height: 1.5;
-        font-size: 14px;
-    }
+    body { background:#111; color:#eee; font-family: Verdana, sans-serif; padding:20px; }
+    .panel { background:#1b1b1b; padding:20px; border-radius:8px; margin-bottom:20px; }
+    button { padding:12px 20px; border:none; border-radius:6px; font-weight:bold; cursor:pointer; }
+    .btn { background:#3d8db7; color:white; }
+    .btn:hover { background:#2a6a8e; }
 </style>
 </head>
 
 <body>
-    <h1>Dark PDF Converter</h1>
-    <p>Trasforma TXT, PDF, DOCX in un **PDF nero con testo bianco**, perfetto per la lettura notturna.</p>
 
-    <!-- Upload -->
-    <div class="panel">
-        <input type="file" id="fileInput" accept=".txt,.pdf,.docx">
-        <p id="fileInfo"></p>
-    </div>
+<h1>Dark PDF Converter</h1>
 
-    <!-- Impostazioni -->
-    <div class="panel">
-        <label>Font Size:</label>
-        <input type="number" id="fontSize" value="14" min="12" max="30">
+<div class="panel">
+    <input type="file" id="fileInput" accept=".txt,.pdf,.docx">
+    <p id="status"></p>
+</div>
 
-        <label>Interlinea:</label>
-        <input type="number" id="lineHeight" value="1.5" min="1" max="3" step="0.1">
+<div class="panel">
+    <label>Dimensione carattere:</label>
+    <input type="number" id="fontSize" value="16">
 
-        <label>Titolo documento (opzionale):</label>
-        <input type="text" id="title" placeholder="Titolo">
-    </div>
+    <label>Interlinea:</label>
+    <input type="number" id="lineHeight" value="1.6" step="0.1">
 
-    <!-- Anteprima -->
-    <div class="panel">
-        <h3>Anteprima</h3>
-        <div id="preview">Carica un file per vedere il contenuto…</div>
-    </div>
+    <label>Titolo:</label>
+    <input type="text" id="title" placeholder="Titolo del documento">
 
-    <!-- Esporta -->
-    <div class="panel">
-        <button class="btn btn-primary" id="exportPdf" disabled>Esporta PDF Dark</button>
-        <p id="status"></p>
-    </div>
+    <br><br>
+
+    <button class="btn" id="exportPdf" disabled>Esporta PDF (VERDANA)</button>
+    <button class="btn" id="exportDocx" disabled>Esporta DOCX</button>
+</div>
 
 <script>
 let uploadedText = "";
 
-// ---------------------
-// CARICAMENTO FILE
-// ---------------------
+// -------------------- LETTURA FILE --------------------
 document.getElementById("fileInput").addEventListener("change", async e => {
     const file = e.target.files[0];
     if (!file) return;
 
-    document.getElementById("status").textContent = "Lettura file…";
+    setStatus("Caricamento...");
 
-    if (file.type === "text/plain") {
-        uploadedText = await file.text();
-    }
-    else if (file.type === "application/pdf") {
-        uploadedText = await extractTextFromPdf(file);
-    }
-    else if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
-        uploadedText = await extractTextFromDocx(file);
-    } else {
-        alert("Tipo file non supportato");
-        return;
-    }
+    try {
+        if (file.type === "text/plain") {
+            uploadedText = await file.text();
+        }
+        else if (file.type === "application/pdf") {
+            uploadedText = await extractPDF(file);
+        }
+        else if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+            uploadedText = await extractDOCX(file);
+        }
 
-    document.getElementById("fileInfo").textContent = "Caricato: " + file.name;
-    document.getElementById("preview").textContent = uploadedText.substring(0, 2000);
-    document.getElementById("exportPdf").disabled = false;
-    document.getElementById("status").textContent = "File pronto.";
+        setStatus("File caricato con successo.");
+        exportPdf.disabled = false;
+        exportDocx.disabled = false;
+
+    } catch (err) {
+        setStatus("Errore: " + err.message);
+    }
 });
 
-// Estrazione testo PDF
-async function extractTextFromPdf(file) {
-    const buffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
-    let text = "";
+// ----- Estrazione PDF -----
+async function extractPDF(file) {
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data: buf}).promise;
 
+    let text = "";
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
-        text += content.items.map(i => i.str).join(" ") + "\n\n";
+        text += content.items.map(t => t.str).join(" ") + "\n";
     }
     return text;
 }
 
-// Estrazione DOCX
-async function extractTextFromDocx(file) {
-    const arrayBuffer = await file.arrayBuffer();
-    const result = await mammoth.extractRawText({ arrayBuffer });
+// ----- Estrazione DOCX -----
+async function extractDOCX(file) {
+    const buf = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer: buf });
     return result.value;
 }
 
-// ---------------------
-// ESPORTAZIONE PDF
-// ---------------------
-document.getElementById("exportPdf").addEventListener("click", exportPdf);
+// -------------------- ESPORTA PDF --------------------
+document.getElementById("exportPdf").addEventListener("click", async () => {
+    try {
+        setStatus("Generazione PDF...");
 
-async function exportPdf() {
-    if (!uploadedText.trim()) {
-        alert("Nessun testo da esportare.");
-        return;
-    }
+        const pdfDoc = await PDFLib.PDFDocument.create();
 
-    document.getElementById("status").textContent = "Generazione PDF…";
+        // ---- CARICA VERDANA DA FILE LOCALE ----
+        const fontBytes = await fetch("verdana.ttf").then(r => r.arrayBuffer());
+        const verdana = await pdfDoc.embedFont(fontBytes);
 
-    const pdfDoc = await PDFLib.PDFDocument.create();
+        const fontSize = parseInt(document.getElementById("fontSize").value);
+        const lineHeight = parseFloat(document.getElementById("lineHeight").value);
+        const title = document.getElementById("title").value || "Documento";
 
-    // Carica Verdana
-    const fontBytes = await fetch("https://github.com/google/fonts/raw/main/apache/verdana/Verdana.ttf")
-        .then(res => res.arrayBuffer());
-    const font = await pdfDoc.embedFont(fontBytes);
+        let page = pdfDoc.addPage([595,842]);
+        let y = 780;
 
-    const fontSize = parseInt(document.getElementById("fontSize").value);
-    const lineHeight = parseFloat(document.getElementById("lineHeight").value);
-    const title = document.getElementById("title").value || "Documento";
+        drawBlackBG(page);
 
-    let page = pdfDoc.addPage([595, 842]);
-    const { width, height } = page.getSize();
-
-    drawBackground(page);
-
-    let y = height - 60;
-
-    // Disegna titolo
-    if (title.trim()) {
+        // titolo
         page.drawText(title, {
             x: 50, y,
-            size: fontSize + 6,
-            font,
-            color: PDFLib.rgb(1, 1, 1)
+            size: fontSize + 8,
+            font: verdana,
+            color: PDFLib.rgb(1,1,1)
         });
-        y -= (fontSize + 12) * lineHeight;
-    }
 
-    // Testo
-    const lines = uploadedText.split("\n");
+        y -= (fontSize+16)*lineHeight;
 
-    for (let line of lines) {
-        if (y < 60) {
-            page = pdfDoc.addPage([595, 842]);
-            drawBackground(page);
-            y = height - 60;
+        // testo
+        const lines = uploadedText.split("\n");
+        for (const line of lines) {
+            if (y < 50) {
+                page = pdfDoc.addPage([595,842]);
+                drawBlackBG(page);
+                y = 780;
+            }
+            page.drawText(line || " ", {
+                x: 50, y,
+                size: fontSize,
+                font: verdana,
+                color: PDFLib.rgb(1,1,1)
+            });
+            y -= fontSize * lineHeight;
         }
 
-        page.drawText(line || " ", {
-            x: 50,
-            y,
-            size: fontSize,
-            font,
-            color: PDFLib.rgb(1, 1, 1)
-        });
+        const bytes = await pdfDoc.save();
+        download(bytes, title + ".pdf");
 
-        y -= fontSize * lineHeight;
+        setStatus("PDF esportato con successo.");
+
+    } catch (err) {
+        setStatus("Errore PDF: " + err);
     }
+});
 
-    const pdfBytes = await pdfDoc.save();
-    const blob = new Blob([pdfBytes], { type: "application/pdf" });
-
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = title + ".pdf";
-    a.click();
-
-    document.getElementById("status").textContent = "PDF creato con successo!";
-}
-
-function drawBackground(page) {
+function drawBlackBG(page) {
     const { width, height } = page.getSize();
     page.drawRectangle({
-        x: 0, y: 0, width, height,
-        color: PDFLib.rgb(0, 0, 0)
+        x:0, y:0, width, height,
+        color: PDFLib.rgb(0,0,0)
     });
+}
+
+// -------------------- ESPORTA DOCX --------------------
+document.getElementById("exportDocx").addEventListener("click", () => {
+    const blob = new Blob([uploadedText], {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    });
+    download(blob, "documento.docx");
+    setStatus("DOCX esportato con successo.");
+});
+
+// ---------------------- UTILS ----------------------
+function download(data, filename) {
+    const blob = data instanceof Blob ? data : new Blob([data]);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function setStatus(msg) {
+    document.getElementById("status").textContent = msg;
 }
 </script>
 
