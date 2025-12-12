@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dark PDF Converter</title>
+    <title>Dark PDF Converter - Verdana</title>
 
     <!-- pdf-lib -->
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
@@ -17,7 +17,7 @@
             'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
 
-    <!-- Mammoth per leggere DOCX -->
+    <!-- Mammoth per DOCX -->
     <script src="https://cdn.jsdelivr.net/npm/mammoth@1.5.0/mammoth.browser.min.js"></script>
 
     <style>
@@ -100,17 +100,15 @@
 </head>
 
 <body>
-    <h1>Dark PDF Converter</h1>
-    <p>TXT / PDF / DOCX → PDF con sfondo nero, testo bianco, Verdana, font ≥14 e interlinea configurabile.</p>
+    <h1>Dark PDF Converter (Verdana)</h1>
+    <p>TXT / PDF / DOCX → PDF con sfondo nero, testo bianco, font Verdana, dimensione ≥14 e interlinea configurabile.</p>
 
-    <!-- Upload -->
     <div class="panel">
         <label for="fileInput">File (TXT, PDF, DOCX):</label>
         <input type="file" id="fileInput" accept=".txt,.pdf,.docx">
         <p id="fileInfo"></p>
     </div>
 
-    <!-- Impostazioni -->
     <div class="panel">
         <label for="fontSize">Font size (px):</label>
         <input type="number" id="fontSize" value="14" min="12" max="30">
@@ -122,13 +120,11 @@
         <input type="text" id="title" placeholder="Titolo">
     </div>
 
-    <!-- Anteprima -->
     <div class="panel">
         <h3>Anteprima (prime ~2000 caratteri)</h3>
         <div id="preview">Carica un file per vedere il contenuto…</div>
     </div>
 
-    <!-- Esporta -->
     <div class="panel">
         <button class="btn btn-primary" id="exportPdf" disabled>Esporta PDF Dark</button>
         <p id="status"></p>
@@ -137,7 +133,7 @@
 <script>
 let uploadedText = "";
 
-// CARICAMENTO FILE
+// ---------- CARICAMENTO FILE ----------
 document.getElementById("fileInput").addEventListener("change", async e => {
     const file = e.target.files[0];
     if (!file) return;
@@ -190,7 +186,7 @@ async function extractTextFromDocx(file) {
     return result.value;
 }
 
-// ESPORTAZIONE PDF
+// ---------- ESPORTAZIONE PDF ----------
 document.getElementById("exportPdf").addEventListener("click", exportPdf);
 
 async function exportPdf() {
@@ -206,8 +202,8 @@ async function exportPdf() {
 
         const { PDFDocument, rgb } = PDFLib;
 
-        // registra fontkit PRIMA di creare/embeddare font custom
-        PDFDocument.registerFontkit(fontkit);
+        // registra fontkit sull'oggetto giusto
+        PDFLib.PDFDocument.registerFontkit(fontkit);
 
         const pdfDoc = await PDFDocument.create();
 
@@ -219,7 +215,7 @@ async function exportPdf() {
         const lineHeight = parseFloat(document.getElementById("lineHeight").value);
         const title = document.getElementById("title").value || "Documento";
 
-        let page = pdfDoc.addPage([595, 842]); // A4 approx in punti
+        let page = pdfDoc.addPage([595, 842]); // A4 approx
         const pageWidth = 595;
         const pageHeight = 842;
         const marginLeft = 50;
@@ -244,7 +240,7 @@ async function exportPdf() {
             y -= titleSize * lineHeight;
         }
 
-        // Testo con wrapping manuale
+        // Testo con wrapping
         const paragraphs = uploadedText.split("\n");
         for (let para of paragraphs) {
             const words = para.split(" ");
