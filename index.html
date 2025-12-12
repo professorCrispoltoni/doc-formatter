@@ -2,30 +2,23 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<title>PDF Nero Ipovedenti - Completo</title>
+<title>TXT → PDF Nero</title>
 
 <!-- PDFMake -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
 
-<!-- PDF.js per estrarre testo da PDF -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-
-<!-- Mammoth per estrarre testo da DOCX -->
-<script src="https://cdn.jsdelivr.net/npm/mammoth@1.5.0/mammoth.browser.min.js"></script>
-
 <style>
-body { background:#111; color:white; font-family:Arial; padding:40px; }
+body { background:#111; color:white; padding:40px; font-family:Arial; }
 button { margin-top:20px; padding:10px 18px; font-size:16px; cursor:pointer; }
 </style>
 </head>
 <body>
 
-<h2>Converti file TXT, PDF o DOCX in PDF nero con testo bianco</h2>
+<h2>Converti TXT in PDF Nero (testo bianco, Verdana)</h2>
 
-<input type="file" id="fileInput" accept=".txt,.pdf,.docx" />
+<input type="file" id="fileInput" accept=".txt">
 <button id="btnPdf" disabled>Esporta PDF</button>
-
 <p id="status"></p>
 
 <script>
@@ -33,10 +26,9 @@ let uploadedText = "";
 const btnPdf = document.getElementById("btnPdf");
 const status = document.getElementById("status");
 
-// Aggiorna stato
 function setStatus(msg){ status.textContent = msg; }
 
-// Carica font Verdana nel VFS
+// Carica font Verdana
 async function loadFonts() {
     const v = await fetch("verdana.ttf").then(r=>r.arrayBuffer());
     const vb = await fetch("verdanab.ttf").then(r=>r.arrayBuffer());
@@ -53,80 +45,39 @@ async function loadFonts() {
         }
     };
 }
-await loadFonts();
-setStatus("Font caricati. Seleziona un file TXT, PDF o DOCX.");
+loadFonts().then(()=>setStatus("Font Verdana pronti. Seleziona un file TXT"));
 
-// Estrazione testo da PDF
-async function extractTextFromPdf(file) {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
-    let text = "";
-    for(let i=1; i<=pdf.numPages; i++){
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        text += content.items.map(item=>item.str).join('') + '\n';
-    }
-    return text;
-}
-
-// Estrazione testo da DOCX
-async function extractTextFromDocx(file){
-    const arrayBuffer = await file.arrayBuffer();
-    const result = await mammoth.extractRawText({arrayBuffer});
-    return result.value;
-}
-
-// Lettura file
+// Carica TXT
 document.getElementById("fileInput").addEventListener("change", async e=>{
     const file = e.target.files[0];
     if(!file) return;
-
     setStatus("Caricamento file...");
-    uploadedText = "";
-
-    try {
-        if(file.type === "text/plain"){
-            uploadedText = await file.text();
-        } else if(file.type === "application/pdf"){
-            uploadedText = await extractTextFromPdf(file);
-        } else if(file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"){
-            uploadedText = await extractTextFromDocx(file);
-        } else {
-            throw new Error("Formato non supportato");
-        }
-
-        setStatus("Caricamento avvenuto con successo.");
-        btnPdf.disabled = false;
-    } catch(err){
-        setStatus("Errore caricamento: "+err.message);
-    }
+    uploadedText = await file.text();
+    setStatus("Caricamento avvenuto con successo.");
+    btnPdf.disabled = false;
 });
 
-// Generazione PDF
+// Genera PDF
 btnPdf.addEventListener("click", ()=>{
-    if(!uploadedText){ setStatus("Nessun testo caricato."); return; }
+    if(!uploadedText){ setStatus("Nessun testo caricato"); return; }
+
     setStatus("Generazione PDF...");
 
     const lines = uploadedText.split("\n");
 
     const docDefinition = {
         pageMargins:[40,40,40,40],
-        background: [
-            { canvas:[ {type:'rect', x:0, y:0, w:595, h:842, color:'black'} ] }
-        ],
+        background: [{canvas:[{type:'rect', x:0, y:0, w:595, h:842, color:'black'}]}],
         content: lines.map(line=>({
-            text: line||" ",
-            font: "verdana",
-            fontSize: 16,
-            color: "white",
-            lineHeight: 1.5
+            text: line || " ",
+            font:"verdana",
+            fontSize:16,
+            color:"white",
+            lineHeight:1.5
         }))
     };
 
-    const pdf = pdfMake.createPdf(docDefinition);
-
-    // Download sicuro
-    pdf.getBlob(blob=>{
+    pdfMake.createPdf(docDefinition).getBlob(function(blob){
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -135,7 +86,7 @@ btnPdf.addEventListener("click", ()=>{
         a.click();
         a.remove();
         URL.revokeObjectURL(url);
-        setStatus("PDF esportato con successo.");
+        setStatus("PDF esportato con successo");
     });
 });
 </script>
