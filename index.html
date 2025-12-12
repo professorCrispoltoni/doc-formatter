@@ -1,205 +1,123 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dark PDF Converter</title>
-
-    <!-- pdf-lib -->
-    <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-
-    <!-- Mammoth (DOCX lettura) -->
-    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.5.0/mammoth.browser.min.js"></script>
-
-    <!-- PDF.js per importare PDF -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/fontkit@1.8.1/dist/fontkit.umd.js"></script>
-
-    <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc =
-            "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-    </script>
-
-<style>
-    body { background:#111; color:#eee; font-family: Verdana, sans-serif; padding:20px; }
-    .panel { background:#1b1b1b; padding:20px; border-radius:8px; margin-bottom:20px; }
-    button { padding:12px 20px; border:none; border-radius:6px; font-weight:bold; cursor:pointer; }
-    .btn { background:#3d8db7; color:white; }
-    .btn:hover { background:#2a6a8e; }
-</style>
+<meta charset="UTF-8">
+<title>PDF Nero per Ipovedenti</title>
 </head>
 
-<body>
+<body style="background:#111; color:white; font-family:Arial; padding:40px">
 
-<h1>Dark PDF Converter</h1>
+<h2>Converti file in PDF ad alto contrasto (Verdana bianco su nero)</h2>
 
-<div class="panel">
-    <input type="file" id="fileInput" accept=".txt,.pdf,.docx">
-    <p id="status"></p>
-</div>
+<input type="file" id="fileInput" accept=".txt,.pdf,.docx" />
+<button id="btnPdf" disabled>Esporta PDF</button>
 
-<div class="panel">
-    <label>Dimensione carattere:</label>
-    <input type="number" id="fontSize" value="16">
+<p id="status"></p>
 
-    <label>Interlinea:</label>
-    <input type="number" id="lineHeight" value="1.6" step="0.1">
+<script type="module">
+import { PDFDocument, rgb } from "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.esm.js";
+import fontkit from "https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.0.0/dist/fontkit.esm.js";
 
-    <label>Titolo:</label>
-    <input type="text" id="title" placeholder="Titolo del documento">
+// ------------------------------------
+// Utility
+// ------------------------------------
+function setStatus(msg){
+    document.getElementById("status").textContent = msg;
+}
 
-    <br><br>
-
-    <button class="btn" id="exportPdf" disabled>Esporta PDF (VERDANA)</button>
-    <button class="btn" id="exportDocx" disabled>Esporta DOCX</button>
-</div>
-
-<script>
 let uploadedText = "";
 
-// -------------------- LETTURA FILE --------------------
-document.getElementById("fileInput").addEventListener("change", async e => {
+// ------------------------------------
+// Lettura file
+// ------------------------------------
+document.getElementById("fileInput").addEventListener("change", async (e)=>{
     const file = e.target.files[0];
-    if (!file) return;
+    if(!file) return;
 
     setStatus("Caricamento...");
 
-    try {
-        if (file.type === "text/plain") {
-            uploadedText = await file.text();
-        }
-        else if (file.type === "application/pdf") {
-            uploadedText = await extractPDF(file);
-        }
-        else if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
-            uploadedText = await extractDOCX(file);
-        }
-
-        setStatus("File caricato con successo.");
-        exportPdf.disabled = false;
-        exportDocx.disabled = false;
-
-    } catch (err) {
-        setStatus("Errore: " + err.message);
+    if(file.type === "text/plain"){
+        uploadedText = await file.text();
+    } else {
+        setStatus("Per ora supportato solo TXT, aggiungo PDF/DOCX dopo.");
+        return;
     }
+
+    setStatus("Caricamento avvenuto con successo.");
+    document.getElementById("btnPdf").disabled = false;
 });
 
-// ----- Estrazione PDF -----
-async function extractPDF(file) {
-    const buf = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+// ------------------------------------
+// Esporta PDF
+// ------------------------------------
+document.getElementById("btnPdf").addEventListener("click", async ()=>{
 
-    let text = "";
-    for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        text += content.items.map(t => t.str).join(" ") + "\n";
-    }
-    return text;
-}
+    try{
+        if(!uploadedText){
+            setStatus("Nessun testo caricato.");
+            return;
+        }
 
-// ----- Estrazione DOCX -----
-async function extractDOCX(file) {
-    const buf = await file.arrayBuffer();
-    const result = await mammoth.extractRawText({ arrayBuffer: buf });
-    return result.value;
-}
-
-// -------------------- ESPORTA PDF --------------------
-document.getElementById("exportPdf").addEventListener("click", async () => {
-    try {
         setStatus("Generazione PDF...");
 
-        const pdfDoc = await PDFLib.PDFDocument.create();
+        const pdfDoc = await PDFDocument.create();
 
-        // 🔥 PASSO CRUCIALE: registra fontkit
+        // 🔥 1. Registra fontkit
         pdfDoc.registerFontkit(fontkit);
 
-        // 🔥 CARICA VERDANA LOCALE
-        const fontBytes = await fetch("verdana.ttf").then(r => r.arrayBuffer());
+        // 🔥 2. Carica font Verdana locale
+        const fontBytes = await fetch("verdana.ttf").then(r=>r.arrayBuffer());
         const verdana = await pdfDoc.embedFont(fontBytes);
 
-        const fontSize = parseInt(document.getElementById("fontSize").value);
-        const lineHeight = parseFloat(document.getElementById("lineHeight").value);
-        const title = document.getElementById("title").value || "Documento";
+        const page = pdfDoc.addPage([595, 842]);
+        const fontSize = 14;
+        const lineHeight = fontSize * 1.5;
+        let y = 800;
 
-        let page = pdfDoc.addPage([595, 842]);
-        let y = 780;
-
-        drawBlackBG(page);
-
-        // Titolo
-        page.drawText(title, {
-            x: 50,
-            y,
-            size: fontSize + 8,
-            font: verdana,
-            color: PDFLib.rgb(1, 1, 1)
+        // Sfondo nero pieno
+        page.drawRectangle({
+            x:0, y:0, width:595, height:842,
+            color: rgb(0,0,0)
         });
 
-        y -= (fontSize + 16) * lineHeight;
-
-        // Corpo testo
+        // Testo bianco Verdana
         const lines = uploadedText.split("\n");
-        for (const line of lines) {
-            if (y < 50) {
-                page = pdfDoc.addPage([595, 842]);
-                drawBlackBG(page);
-                y = 780;
+
+        for(const line of lines){
+            if(y < 40){
+                const p = pdfDoc.addPage([595,842]);
+                p.drawRectangle({x:0,y:0,width:595,height:842,color:rgb(0,0,0)});
+                y = 800;
             }
 
             page.drawText(line || " ", {
-                x: 50,
-                y,
+                x: 40,
+                y: y,
                 size: fontSize,
                 font: verdana,
-                color: PDFLib.rgb(1, 1, 1)
+                color: rgb(1,1,1)
             });
 
-            y -= fontSize * lineHeight;
+            y -= lineHeight;
         }
 
-        const bytes = await pdfDoc.save();
-        download(bytes, title + ".pdf");
+        const pdfBytes = await pdfDoc.save();
+
+        // Download
+        const blob = new Blob([pdfBytes], {type:"application/pdf"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "testo_nero.pdf";
+        a.click();
+        URL.revokeObjectURL(url);
 
         setStatus("PDF esportato con successo.");
 
-    } catch (err) {
+    } catch(err){
         setStatus("Errore PDF: " + err);
     }
 });
-
-function drawBlackBG(page) {
-    const { width, height } = page.getSize();
-    page.drawRectangle({
-        x:0, y:0, width, height,
-        color: PDFLib.rgb(0,0,0)
-    });
-}
-
-// -------------------- ESPORTA DOCX --------------------
-document.getElementById("exportDocx").addEventListener("click", () => {
-    const blob = new Blob([uploadedText], {
-        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    });
-    download(blob, "documento.docx");
-    setStatus("DOCX esportato con successo.");
-});
-
-// ---------------------- UTILS ----------------------
-function download(data, filename) {
-    const blob = data instanceof Blob ? data : new Blob([data]);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-}
-
-function setStatus(msg) {
-    document.getElementById("status").textContent = msg;
-}
 </script>
 
 </body>
