@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generatore Documenti - Sfondo Nero</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: #000; 
+            color: #fff; 
+            font-family: 'Verdana', sans-serif; 
+            min-height: 100vh; 
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { 
+            font-size: 28px; 
+            font-weight: bold; 
+            margin-bottom: 30px; 
+            text-align: center;
+            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+        }
+        .upload-area {
+            border: 3px dashed #fff;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s;
+            cursor: pointer;
+            line-height: 1.5;
+        }
+        .upload-area:hover, .upload-area.dragover {
+            background: rgba(255,255,255,0.1);
+            border-color: #00ff88;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .control-group {
+            background: rgba(255,255,255,0.05);
+            padding: 20px;
+            border-radius: 10px;
+            line-height: 1.5;
+        }
+        select, input[type="range"] { 
+            background: #333; 
+            color: #fff; 
+            border: 1px solid #555; 
+            border-radius: 5px; 
+            padding: 8px;
+            width: 100%;
+            font-size: 16px;
+        }
+        input[type="range"] { padding: 0; height: 8px; }
+        .output { 
+            background: rgba(255,255,255,0.03); 
+            border-radius: 10px; 
+            padding: 20px; 
+            min-height: 300px;
+            line-height: 1.5;
+            font-size: 14px;
+            white-space: pre-wrap;
+            overflow-y: auto;
+            max-height: 400px;
+            margin-bottom: 20px;
+        }
+        .buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        button {
+            background: linear-gradient(45deg, #00ff88, #00cc66);
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: Verdana, sans-serif;
+        }
+        button:hover { transform: scale(1.05); box-shadow: 0 5px 20px rgba(0,255,136,0.4); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .status { text-align: center; margin: 20px 0; font-size: 18px; }
+        @media (max-width: 768px) {
+            .controls { grid-template-columns: 1fr; }
+            .buttons { flex-direction: column; align-items: center; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖤 Generatore Documenti Formattati</h1>
+        
+        <div class="upload-area" id="uploadArea">
+            <p>📁 Trascina qui il tuo file TXT/PDF/DOCX<br>
+            <small>o clicca per selezionare (max 5MB)</small></p>
+            <input type="file" id="fileInput" accept=".txt,.pdf,.docx" style="display:none;">
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>Font:</label>
+                <select id="fontSelect">
+                    <option>Verdana</option>
+                    <option>Arial</option>
+                    <option>Times New Roman</option>
+                    <option>Georgia</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Dimensione (px):</label>
+                <input type="range" id="fontSize" min="14" max="28" value="16">
+                <span id="fontSizeValue">16px</span>
+            </div>
+            <div class="control-group">
+                <label>Interlinea:</label>
+                <select id="lineHeight">
+                    <option>1.5</option>
+                    <option>1.2</option>
+                    <option>1.8</option>
+                    <option>2.0</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Titolo documento:</label>
+                <input type="text" id="docTitle" placeholder="Es: Fantasticheria - Verga" maxlength="100">
+            </div>
+        </div>
+
+        <div id="preview" class="output" style="display:none;"></div>
+        
+        <div class="status" id="status"></div>
+        
+        <div class="buttons">
+            <button id="exportPDF" disabled>📄 Esporta PDF</button>
+            <button id="copyText" disabled>📋 Copia Testo Formattato</button>
+            <button id="downloadTXT" disabled>💾 Scarica TXT</button>
+        </div>
+    </div>
+
+    <script>
+        // Logica completa dell'app (drag&drop, PDF generation, etc.)
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const preview = document.getElementById('preview');
+        const status = document.getElementById('status');
+        const exportPDF = document.getElementById('exportPDF');
+        const copyText = document.getElementById('copyText');
+        const downloadTXT = document.getElementById('downloadTXT');
+        
+        let currentText = '';
+        
+        // Drag & Drop
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, unhighlight, false);
+        });
+        
+        function highlight(e) {
+            uploadArea.classList.add('dragover');
+        }
+        
+        function unhighlight(e) {
+            uploadArea.classList.remove('dragover');
+        }
+        
+        uploadArea.addEventListener('drop', handleDrop, false);
+        uploadArea.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleFile);
+        
+        async function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            await handleFileSelect(files[0]);
+        }
+        
+        async function handleFile() {
+            await handleFileSelect(fileInput.files[0]);
+        }
+        
+        async function handleFileSelect(file) {
+            if (!file) return;
+            
+            status.textContent = '📖 Lettura file...';
+            status.style.color = '#00ff88';
+            
+            try {
+                const text = await extractText(file);
+                currentText = text;
+                updatePreview();
+                showControls();
+                status.textContent = `✅ Caricato: ${file.name} (${Math.round(file.size/1024)}KB)`;
+            } catch (error) {
+                status.textContent = '❌ Errore lettura file';
+                status.style.color = '#ff4444';
+                console.error(error);
+            }
+        }
+        
+        async function extractText(file) {
+            const text = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    if (file.name.endsWith('.txt')) {
+                        resolve(e.target.result);
+                    } else if (file.name.endsWith('.pdf')) {
+                        // PDF parsing semplificato
+                        resolve('PDF parsing richiede libreria esterna. Usa TXT per ora.');
+                    } else {
+                        resolve('DOCX non supportato nativamente. Converti in TXT.');
+                    }
+                };
+                reader.onerror = reject;
+                reader.readAsText(file);
+            });
+            return text;
+        }
+        
+        function updatePreview() {
+            const title = document.getElementById('docTitle').value || 'Documento';
+            const font = document.getElementById('fontSelect').value;
+            const size = document.getElementById('fontSize').value;
+            const lineHeight = document.getElementById('lineHeight').value;
+            
+            preview.innerHTML = `
+                <div style="font-family: '${font}', sans-serif; font-size: ${size}px; line-height: ${lineHeight};">
+                    <h2 style="color: #00ff88; margin-bottom: 20px; font-size: ${parseInt(size)+4}px;">${title}</h2>
+                    ${currentText.replace(/\n/g, '<br>')}
+                </div>
+            `;
+        }
+        
+        function showControls() {
+            preview.style.display = 'block';
+            exportPDF.disabled = false;
+            copyText.disabled = false;
+            downloadTXT.disabled = false;
+        }
+        
+        // Event listeners
+        document.getElementById('fontSelect').addEventListener('change', updatePreview);
+        document.getElementById('fontSize').addEventListener('input', (e) => {
+            document.getElementById('fontSizeValue').textContent = e.target.value + 'px';
+            updatePreview();
+        });
+        document.getElementById('lineHeight').addEventListener('change', updatePreview);
+        document.getElementById('docTitle').addEventListener('input', updatePreview);
+        
+        exportPDF.addEventListener('click', async () => {
+            status.textContent = '📄 Generazione PDF...';
+            // PDF generation con pdf-lib
+            const { PDFDocument, StandardFonts, rgb } = PDFLib;
+            const pdfDoc = await PDFDocument.create();
+            const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+            
+            const page = pdfDoc.addPage([600, 800]);
+            page.drawText(currentText.substring(0, 2000), {
+                x: 50,
+                y: 750,
+                size: 14,
+                font: font,
+                color: rgb(1, 1, 1),
+            });
+            
+            const pdfBytes = await pdfDoc.save();
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            saveAs(blob, 'documento_formattato.pdf');
+            status.textContent = '✅ PDF esportato!';
+        });
+        
+        copyText.addEventListener('click', () => {
+            navigator.clipboard.writeText(currentText).then(() => {
+                status.textContent = '📋 Testo copiato!';
+            });
+        });
+        
+        downloadTXT.addEventListener('click', () => {
+            const blob = new Blob([currentText], { type: 'text/plain' });
+            saveAs(blob, 'documento_formattato.txt');
+            status.textContent = '💾 TXT scaricato!';
+        });
+    </script>
+</body>
+</html>
