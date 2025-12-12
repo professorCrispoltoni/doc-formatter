@@ -191,14 +191,15 @@ document.getElementById("exportPdf").addEventListener("click", exportPdf);
     
 async function exportPdf() {
     const status = document.getElementById("status");
+    const preview = document.getElementById("preview");
 
-    if (!uploadedText.trim() === '') {
-        alert("Nessun testo da esportare.");
+    if (!uploadedText.trim()) {
+        alert("Nessun testo.");
         return;
     }
 
     try {
-        status.textContent = "Generazione PDF…";
+        status.textContent = "PDF…";
 
         const { PDFDocument, StandardFonts, rgb } = PDFLib;
         const pdfDoc = await PDFDocument.create();
@@ -208,71 +209,53 @@ async function exportPdf() {
         const lineHeight = parseFloat(document.getElementById("lineHeight").value);
 
         let page = pdfDoc.addPage([595, 842]);
-        const pageWidth = 595;
-        const pageHeight = 842;
         const marginLeft = 50;
         const marginTop = 60;
         const marginBottom = 60;
-        const maxWidth = pageWidth - marginLeft * 2;
+        const pageHeight = 842;
 
         drawBackground(page, rgb);
         let y = pageHeight - marginTop;
 
-        // SPLIT ESATTO per riga (mantiene TUTTI gli a capo)
-        const lines = uploadedText.split('\n');
-        for (let line of lines) {
-            let cleanLine = line.replace(/\s{2,}/g, ' ').trim(); // solo spazi eccessivi
+        // COPIA ESATTAMENTE L'ANTEPRESA (linea per linea)
+        const previewLines = preview.textContent.split('\n');
+        
+        for (let previewLine of previewLines) {
+            let line = previewLine.trim();
             
-            if (cleanLine === '') {
-                // RIGA VUOTA = SPAZIO DOPPIO
-                y -= fontSize * lineHeight * 1.5;
+            // NUOVA PAGINA SE FINE PAGINA
+            if (y < marginBottom) {
+                page = pdfDoc.addPage([595, 842]);
+                drawBackground(page, rgb);
+                y = pageHeight - marginTop;
+            }
+
+            if (!line) {
+                y -= fontSize * 0.8; // riga vuota
                 continue;
             }
 
-            // WRAPPING ORIZZONTALE per riga corrente
-            const words = cleanLine.split(' ');
-            let currentLine = '';
-            
-            for (let word of words) {
-                const testLine = currentLine ? currentLine + ' ' + word : word;
-                const textWidth = font.widthOfTextAtSize(testLine, fontSize);
-
-                if (textWidth > maxWidth) {
-                    // Stampa riga corrente
-                    if (currentLine && y >= marginBottom) {
-                        page.drawText(currentLine, {
-                            x: marginLeft,
-                            y,
-                            size: fontSize,
-                            font,
-                            color: rgb(1, 1, 1)
-                        });
-                    }
-                    y -= fontSize * lineHeight;
-                    
-                    // Nuova pagina se serve
-                    if (y < marginBottom) {
-                        page = pdfDoc.addPage([595, 842]);
-                        drawBackground(page, rgb);
-                        y = pageHeight - marginTop;
-                    }
-                    
-                    currentLine = word;
-                } else {
-                    currentLine = testLine;
-                }
-            }
-
-            // Ultima parola della riga
-            if (currentLine && y >= marginBottom) {
-                page.drawText(currentLine, {
+            // STAMPA LA RIGA INTERA (senza wrapping orizzontale!)
+            const textWidth = font.widthOfTextAtSize(line, fontSize);
+            if (textWidth < 495) { // larghezza pagina
+                page.drawText(line, {
                     x: marginLeft,
                     y,
                     size: fontSize,
                     font,
                     color: rgb(1, 1, 1)
                 });
+            } else {
+                // Se troppo lunga, riduci font
+                page.drawText(line, {
+                    x: marginLeft,
+                    y,
+                    size: fontSize * 0.9,
+                    font,
+                    color: rgb(1, 1, 1)
+                });
             }
+            
             y -= fontSize * lineHeight;
         }
 
@@ -282,18 +265,15 @@ async function exportPdf() {
         const a = document.createElement("a");
         a.href = url;
         a.download = "PDF-Dark.pdf";
-        document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        status.textContent = "PDF creato!";
+        status.textContent = "Fatto!";
     } catch (err) {
-        console.error(err);
-        status.textContent = "Errore.";
         alert(err.message);
     }
 }
+
 
 function drawBackground(page, rgb) {
     const { width, height } = page.getSize();
